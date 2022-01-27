@@ -1,0 +1,145 @@
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" | "\x0B" | "\x0C" | "\xA0" | SPACE_SEPARATOR }
+COMMENT = _{ ";" ~ (!"\n" ~ ANY)* }
+
+assembly = {
+    SOI ~ (origin | include_bin | data | constant | label | instruction)* ~ EOI
+}
+
+origin = {
+    origin_padding    |
+    origin_no_padding
+}
+origin_padding = { "org.pad" ~ operand_value }
+origin_no_padding = { "org" ~ operand_value }
+
+include_bin = { "#include_bin" ~ immediate_str }
+
+data = {
+    data_byte |
+    data_half |
+    data_word |
+    data_str
+}
+data_byte = { "data.8" ~ operand_value }
+data_half = { "data.16" ~ operand_value }
+data_word = { "data.32" ~ operand_value }
+data_str  = { "data.str" ~ immediate_str }
+
+constant = { "const" ~ constant_name ~ operand_value }
+constant_name = ${label_name ~ ":"}
+
+label = ${ label_name ~ ":" }
+label_name = @{ label_name_chars+ }
+label_name_chars = @{ ASCII_ALPHANUMERIC | "_" }
+
+operand = {
+    "[" ~ operand_value_ptr ~ "]" |
+    operand_value
+}
+operand_value_ptr = {
+    operand_value
+}
+operand_value = {
+    register       |
+    immediate_bin  |
+    immediate_hex  |
+    immediate_dec  |
+    immediate_char |
+    label_name
+}
+
+size = @{
+    ".8"  |
+    ".16" |
+    ".32"
+}
+
+condition = @{
+    "ifz"  |
+    "ifnz" |
+    "ifc"  |
+    "ifnc"
+}
+
+instruction = {
+    condition? ~ instruction_conditional
+}
+
+instruction_conditional = {
+    instruction_zero          |
+    instruction_one ~ size? ~ operand |
+    instruction_two ~ size? ~ operand ~ "," ~ operand
+}
+
+instruction_zero = @{
+    "nop"  |
+    "halt" |
+    "brk"  |
+    "reti" |
+    "ret"  |
+    "ise"  |
+    "icl"
+}
+
+instruction_one = @{
+    "inc"   |
+    "dec"   |
+    "not"   |
+    "jmp"   |
+    "call"  |
+    "loop"  |
+    "rjmp"  |
+    "rcall" |
+    "rloop" |
+    "push"  |
+    "pop"
+}
+
+instruction_two = @{
+    "add"  |
+    "sub"  |
+    "mul"  |
+    "pow"  |
+    "div"  |
+    "rem"  |
+    "and"  |
+    "or"   |
+    "xor"  |
+    "sla"  |
+    "sra"  |
+    "srl"  |
+    "rol"  |
+    "ror"  |
+    "bse"  |
+    "bcl"  |
+    "bts"  |
+    "cmp"  |
+    "movz" |
+    "mov"  |
+    "rta"  |
+    "in"   |
+    "out"
+}
+
+immediate_bin  = ${ "0b" ~ body_bin }
+body_bin       = @{ ASCII_BIN_DIGIT+ }
+
+immediate_hex  = ${ "0x" ~ body_hex }
+body_hex       = @{ ASCII_HEX_DIGIT+ }
+
+immediate_dec  = ${ body_dec }
+body_dec       = @{ ASCII_DIGIT+ }
+
+immediate_char = ${ "'" ~ body_char ~ "'" }
+body_char      = @{ '\x00'..'\x7F' }
+
+immediate_str  = ${ "\"" ~ body_str ~ "\"" }
+body_str       = @{ body_str_chars* }
+body_str_chars = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+
+register = ${ "r" ~ register_num }
+register_num = @{ ASCII_DIGIT+ | "sp" }
