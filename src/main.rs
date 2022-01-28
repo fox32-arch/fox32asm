@@ -257,6 +257,9 @@ fn format_address_table(m: &HashMap<String, u32>) -> String {
 }
 
 fn main() {
+    let version_string = format!("fox32asm {} ({})", env!("VERGEN_BUILD_SEMVER"), env!("VERGEN_GIT_SHA_SHORT"));
+    println!("{}", version_string);
+
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
         println!("fox32asm\nUsage: {} <input> <output>", args[0]);
