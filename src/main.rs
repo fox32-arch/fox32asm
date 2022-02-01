@@ -274,7 +274,7 @@ fn main() {
     let mut source_path = canonicalize(&input_file_name).unwrap();
     source_path.pop();
     *SOURCE_PATH.lock().unwrap() = source_path;
-    for _ in 0..8 {
+    for _ in 0..128 {
         let loop_file = input_file.clone(); // this is a hack to allow modifying input_file from inside the for loop
         for (line_number, text) in loop_file.lines().enumerate() {
             match text.trim() {
