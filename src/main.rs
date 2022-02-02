@@ -35,19 +35,20 @@ lazy_static! {
 #[derive(Debug, Clone)]
 struct BackpatchTarget {
     index: usize,
+    size: Size,
     is_relative: bool,
     instruction: AssembledInstruction,
 }
 
 impl BackpatchTarget {
-    fn new(instruction: &AssembledInstruction, index: usize, is_relative: bool) -> BackpatchTarget {
+    fn new(instruction: &AssembledInstruction, index: usize, size: Size, is_relative: bool) -> BackpatchTarget {
         Self {
-            index, is_relative,
+            index, is_relative, size,
             instruction: instruction.clone(),
         }
     }
 
-    fn write(&self, address: u32) {
+    fn write(&self, size: Size, address: u32) {
         let ref instruction = self.instruction;
         let mut instruction_data = instruction.borrow_mut();
 
@@ -58,16 +59,25 @@ impl BackpatchTarget {
                 address.to_le_bytes()
             };
 
-        instruction_data[self.index]     = address_bytes[0];
-        instruction_data[self.index + 1] = address_bytes[1];
-        instruction_data[self.index + 2] = address_bytes[2];
-        instruction_data[self.index + 3] = address_bytes[3];
+        match size {
+            Size::Byte => instruction_data[self.index] = address_bytes[0],
+            Size::Half => {
+                instruction_data[self.index]     = address_bytes[0];
+                instruction_data[self.index + 1] = address_bytes[1];
+            },
+            Size::Word => {
+                instruction_data[self.index]     = address_bytes[0];
+                instruction_data[self.index + 1] = address_bytes[1];
+                instruction_data[self.index + 2] = address_bytes[2];
+                instruction_data[self.index + 3] = address_bytes[3];
+            }
+        }
     }
 }
 
 fn perform_backpatching(targets: &Vec<BackpatchTarget>, address: u32) {
     for target in targets {
-        target.write(address);
+        target.write(target.size, address);
     }
 }
 
@@ -232,6 +242,7 @@ enum AstNode {
     LabelDefine(String),
     LabelOperand {
         name: String,
+        size: Size,
         is_relative: bool,
     },
     LabelOperandPointer {
@@ -494,7 +505,7 @@ fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
         Rule::data_word => {
             match parse_operand(pair.into_inner().next().unwrap(), false) {
                 AstNode::Immediate32(word) => AstNode::DataWord(word),
-                AstNode::LabelOperand {name, is_relative} => AstNode::LabelOperand {name, is_relative},
+                AstNode::LabelOperand {name, size, is_relative} => AstNode::LabelOperand {name, size, is_relative},
                 _ => unreachable!(),
             }
         },
@@ -675,6 +686,7 @@ fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> Ast
                     } else {
                         AstNode::LabelOperand {
                             name: operand_value_pair.as_str().to_string(),
+                            size,
                             is_relative: false,
                         }
                     }
@@ -715,8 +727,8 @@ fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode
             "loop"  => InstructionOne::Loop,
             "rjmp"  => {
                 match &mut operand {
-                    &mut AstNode::LabelOperand        {name: _, ref mut is_relative} |
-                    &mut AstNode::LabelOperandPointer {name: _, ref mut is_relative} => {
+                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
+                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
                         *is_relative = true;
                     }
                     _ => {}
@@ -725,8 +737,8 @@ fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode
             },
             "rcall" => {
                 match &mut operand {
-                    &mut AstNode::LabelOperand        {name: _, ref mut is_relative} |
-                    &mut AstNode::LabelOperandPointer {name: _, ref mut is_relative} => {
+                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
+                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
                         *is_relative = true;
                     }
                     _ => {}
@@ -735,8 +747,8 @@ fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode
             },
             "rloop" => {
                 match &mut operand {
-                    &mut AstNode::LabelOperand        {name: _, ref mut is_relative} |
-                    &mut AstNode::LabelOperandPointer {name: _, ref mut is_relative} => {
+                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
+                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
                         *is_relative = true;
                     }
                     _ => {}
@@ -778,15 +790,15 @@ fn parse_instruction_two(pair: pest::iterators::Pair<Rule>, mut lhs: AstNode, mu
             "movz" => InstructionTwo::Movz,
             "rta"  => {
                 match &mut lhs {
-                    &mut AstNode::LabelOperand        {name: _, ref mut is_relative} |
-                    &mut AstNode::LabelOperandPointer {name: _, ref mut is_relative} => {
+                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
+                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
                         *is_relative = true;
                     }
                     _ => {}
                 }
                 match &mut rhs {
-                    &mut AstNode::LabelOperand        {name: _, ref mut is_relative} |
-                    &mut AstNode::LabelOperandPointer {name: _, ref mut is_relative} => {
+                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
+                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
                         *is_relative = true;
                     }
                     _ => {}
@@ -817,11 +829,11 @@ fn assemble_node(node: AstNode) -> AssembledInstruction {
         AstNode::DataStr(string) => {
             return string.as_bytes().into();
         },
-        AstNode::LabelOperand {name, is_relative} => {
+        AstNode::LabelOperand {name, size, is_relative} => {
             // label is used on its own, not as an operand:
             // LabelOperand was previously only checked as part of operands
             let instruction = AssembledInstruction::new();
-            generate_backpatch_immediate(&name, &instruction, is_relative);
+            generate_backpatch_immediate(&name, &size, &instruction, is_relative);
             return instruction;
         },
         _ => {}
@@ -985,11 +997,16 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
     condition | source | destination
 }
 
-fn generate_backpatch_immediate(name: &String, instruction: &AssembledInstruction, is_relative: bool) {
+fn generate_backpatch_immediate(name: &String, size: &Size, instruction: &AssembledInstruction, is_relative: bool) {
     let index = instruction.borrow().len();
     {
         let mut vec = instruction.borrow_mut();
-        for _ in 0..4 {
+        let range = match size {
+            Size::Byte => 0..1,
+            Size::Half => 0..2,
+            Size::Word => 0..4,
+        };
+        for _ in range {
             vec.push(0xAB);
         }
     }
@@ -1002,7 +1019,7 @@ fn generate_backpatch_immediate(name: &String, instruction: &AssembledInstructio
             table.get_mut(name).unwrap()
         }
     };
-    targets.push(BackpatchTarget::new(instruction, index, is_relative));
+    targets.push(BackpatchTarget::new(instruction, index, *size, is_relative));
 }
 
 fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction) {
@@ -1022,10 +1039,13 @@ fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction) 
                     AstNode::Immediate32     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
                     AstNode::ImmediatePointer(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
 
-                    AstNode::LabelOperand        {ref name, is_relative} |
+                    AstNode::LabelOperand        {ref name, ref size, is_relative} => {
+                        std::mem::drop(vec);
+                        generate_backpatch_immediate(name, size, instruction, is_relative);
+                    }
                     AstNode::LabelOperandPointer {ref name, is_relative} => {
                         std::mem::drop(vec);
-                        generate_backpatch_immediate(name, instruction, is_relative);
+                        generate_backpatch_immediate(name, &Size::Word, instruction, is_relative);
                     }
 
                     _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
@@ -1042,10 +1062,13 @@ fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction) 
                     AstNode::Immediate32     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
                     AstNode::ImmediatePointer(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
 
-                    AstNode::LabelOperand        {ref name, is_relative} |
+                    AstNode::LabelOperand        {ref name, ref size, is_relative} => {
+                        std::mem::drop(vec);
+                        generate_backpatch_immediate(name, size, instruction, is_relative);
+                    }
                     AstNode::LabelOperandPointer {ref name, is_relative} => {
                         std::mem::drop(vec);
-                        generate_backpatch_immediate(name, instruction, is_relative);
+                        generate_backpatch_immediate(name, &Size::Word, instruction, is_relative);
                     }
 
                     _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
@@ -1069,10 +1092,13 @@ fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction) 
 
                 AstNode::ImmediatePointer(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
 
-                AstNode::LabelOperand        {ref name, is_relative} |
+                AstNode::LabelOperand        {ref name, ref size, is_relative} => {
+                    std::mem::drop(vec);
+                    generate_backpatch_immediate(name, size, instruction, is_relative);
+                }
                 AstNode::LabelOperandPointer {ref name, is_relative} => {
                     std::mem::drop(vec);
-                    generate_backpatch_immediate(name, instruction, is_relative);
+                    generate_backpatch_immediate(name, &Size::Word, instruction, is_relative);
                 }
 
                 _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
