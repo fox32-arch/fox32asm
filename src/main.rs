@@ -958,7 +958,7 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
             match lhs.as_ref() {
                 AstNode::Register(_) => 0x00,
                 AstNode::RegisterPointer(_) => 0x04,
-                AstNode::ImmediatePointer(_) | AstNode::LabelOperandPointer {..} => 0x08,
+                AstNode::ImmediatePointer(_) | AstNode::LabelOperandPointer {..} => 0x0C,
                 _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
             }
         }
