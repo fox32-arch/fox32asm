@@ -137,7 +137,7 @@ immediate_str  = ${ "\"" ~ body_str ~ "\"" }
 body_str       = @{ body_str_chars* }
 body_str_chars = {
     !("\"" | "\\") ~ ANY
-    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ body_str_chars
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
