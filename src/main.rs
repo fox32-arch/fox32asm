@@ -602,6 +602,10 @@ fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
     }
 }
 
+fn remove_underscores(input: &str) -> String {
+    String::from_iter(input.chars().filter(|c| *c != '_'))
+}
+
 fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> AstNode {
     //println!("parse_operand: {:#?}", pair); // debug
     let size = *CURRENT_SIZE.lock().unwrap();
@@ -616,7 +620,7 @@ fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> Ast
             match operand_value_pair.as_rule() {
                 Rule::immediate_bin => {
                     let body_bin_str = operand_value_pair.into_inner().next().unwrap().as_str();
-                    let immediate = u32::from_str_radix(body_bin_str, 2).unwrap();
+                    let immediate = u32::from_str_radix(&remove_underscores(body_bin_str), 2).unwrap();
                     if is_pointer {
                         AstNode::ImmediatePointer(immediate)
                     } else {
@@ -629,7 +633,7 @@ fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> Ast
                 }
                 Rule::immediate_hex => {
                     let body_hex_str = operand_value_pair.into_inner().next().unwrap().as_str();
-                    let immediate = u32::from_str_radix(body_hex_str, 16).unwrap();
+                    let immediate = u32::from_str_radix(&remove_underscores(body_hex_str), 16).unwrap();
                     if is_pointer {
                         AstNode::ImmediatePointer(immediate)
                     } else {
@@ -642,7 +646,7 @@ fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> Ast
                 }
                 Rule::immediate_dec => {
                     let body_dec_str = operand_value_pair.into_inner().next().unwrap().as_str();
-                    let immediate = body_dec_str.parse::<u32>().unwrap();
+                    let immediate = remove_underscores(body_dec_str).parse::<u32>().unwrap();
                     if is_pointer {
                         AstNode::ImmediatePointer(immediate)
                     } else {
