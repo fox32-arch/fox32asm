@@ -205,6 +205,10 @@ enum Condition {
     NotZero,
     Carry,
     NotCarry,
+    GreaterThan,
+    // GreaterThanEqualTo is equivalent to NotCarry
+    // LessThan is equivalent to Carry
+    LessThanEqualTo,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -561,6 +565,10 @@ fn parse_condition(pair: &pest::iterators::Pair<Rule>) -> Condition {
         "ifnz" => Condition::NotZero,
         "ifc" => Condition::Carry,
         "ifnc" => Condition::NotCarry,
+        "ifgt" => Condition::GreaterThan,
+        "ifgteq" => Condition::NotCarry,
+        "iflt" => Condition::Carry,
+        "iflteq" => Condition::LessThanEqualTo,
         _ => panic!("Unsupported condition: {}", pair.as_str()),
     }
 }
@@ -976,6 +984,8 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
                 Condition::NotZero => 0x20,
                 Condition::Carry => 0x30,
                 Condition::NotCarry => 0x40,
+                Condition::GreaterThan => 0x50,
+                Condition::LessThanEqualTo => 0x60,
             }
         }
         AstNode::OperationOne {condition, ..} => {
@@ -985,6 +995,8 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
                 Condition::NotZero => 0x20,
                 Condition::Carry => 0x30,
                 Condition::NotCarry => 0x40,
+                Condition::GreaterThan => 0x50,
+                Condition::LessThanEqualTo => 0x60,
             }
         }
         AstNode::OperationTwo {condition, ..} => {
@@ -994,6 +1006,8 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
                 Condition::NotZero => 0x20,
                 Condition::Carry => 0x30,
                 Condition::NotCarry => 0x40,
+                Condition::GreaterThan => 0x50,
+                Condition::LessThanEqualTo => 0x60,
             }
         }
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),

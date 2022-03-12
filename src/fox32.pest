@@ -55,10 +55,14 @@ size = @{
 }
 
 condition = @{
-    "ifz"  |
-    "ifnz" |
-    "ifc"  |
-    "ifnc"
+    "ifz"    |
+    "ifnz"   |
+    "ifc"    |
+    "ifnc"   |
+    "ifgteq" |
+    "ifgt"   |
+    "iflteq" |
+    "iflt"
 }
 
 instruction = {
