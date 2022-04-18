@@ -462,6 +462,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
 }
 
 fn parse_constant(pairs: pest::iterators::Pairs<Rule>) -> AstNode {
+    *CURRENT_SIZE.lock().unwrap() = Size::Word;
     let mut pairs = pairs;
     let constant_name = pairs.next().unwrap().into_inner().next().unwrap().as_str();
     let operand_pair = pairs.next().unwrap();
