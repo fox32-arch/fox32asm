@@ -28,9 +28,15 @@ data_str  = { "data.str" ~ immediate_str }
 constant = { "const" ~ constant_name ~ operand_value }
 constant_name = ${label_name ~ ":"}
 
-label = ${ label_name ~ ":" }
+label = { label_kind? ~ label_name ~ ":" }
+label_kind = {
+    label_external |
+    label_global
+}
 label_name = @{ label_name_chars+ }
 label_name_chars = @{ ASCII_ALPHANUMERIC | "_" }
+label_external = { "extern" }
+label_global   = { "global" }
 
 operand = {
     "[" ~ operand_value_ptr ~ "]" |

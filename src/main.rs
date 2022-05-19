@@ -29,8 +29,18 @@ lazy_static! {
     static ref CURRENT_SIZE: Mutex<Size> = Mutex::new(Size::Word);
     static ref CURRENT_CONDITION: Mutex<Condition> = Mutex::new(Condition::Always);
     static ref LABEL_TARGETS: Mutex<HashMap<String, Vec<BackpatchTarget>>> = Mutex::new(HashMap::new());
-    static ref LABEL_ADDRESSES: Mutex<HashMap<String, u32>> = Mutex::new(HashMap::new());
+    static ref LABEL_ADDRESSES: Mutex<HashMap<String, (u32, bool)>> = Mutex::new(HashMap::new());
+    static ref RELOC_ADDRESSES: Mutex<Vec<u32>> = Mutex::new(Vec::new());
 }
+
+//const FXF_CODE_SIZE:   usize = 0x00000004;
+//const FXF_CODE_PTR:    usize = 0x00000008;
+//const FXF_EXTERN_SIZE: usize = 0x0000000C;
+//const FXF_EXTERN_PTR:  usize = 0x00000010;
+//const FXF_GLOABL_SIZE: usize = 0x00000014;
+//const FXF_GLOBAL_PTR:  usize = 0x00000018;
+const FXF_RELOC_SIZE:  usize = 0x0000001C;
+const FXF_RELOC_PTR:   usize = 0x00000020;
 
 #[derive(Debug, Clone)]
 struct BackpatchTarget {
@@ -73,11 +83,21 @@ impl BackpatchTarget {
             }
         }
     }
+
+    fn get_backpatch_location(&self) -> u32 {
+        self.instruction.get_address() + self.index as u32
+    }
 }
 
-fn perform_backpatching(targets: &Vec<BackpatchTarget>, address: u32) {
+fn perform_backpatching(targets: &Vec<BackpatchTarget>, address: (u32, bool)) {
     for target in targets {
-        target.write(target.size, address);
+        target.write(target.size, address.0);
+
+        // if this label isn't const, then add it to the reloc table for FXF
+        if !address.1 {
+            let mut reloc_table = RELOC_ADDRESSES.lock().unwrap();
+            reloc_table.push(target.get_backpatch_location());
+        }
     }
 }
 
@@ -211,6 +231,13 @@ enum Condition {
     LessThanEqualTo,
 }
 
+#[derive(PartialEq, Debug, Clone, Copy)]
+enum LabelKind {
+    Internal,
+    External,
+    Global,
+}
+
 #[derive(PartialEq, Debug, Clone)]
 enum AstNode {
     OperationZero {
@@ -243,7 +270,10 @@ enum AstNode {
         address: u32,
     },
 
-    LabelDefine(String),
+    LabelDefine {
+        name: String,
+        kind: LabelKind,
+    },
     LabelOperand {
         name: String,
         size: Size,
@@ -277,12 +307,19 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
-        println!("fox32asm\nUsage: {} <input> <output>", args[0]);
+        println!("Usage: {} <input> <output>", args[0]);
         exit(1);
     }
 
     let input_file_name = &args[1];
     let output_file_name = &args[2];
+
+    let is_fxf = output_file_name.ends_with(".fxf");
+    if is_fxf {
+        println!("Generating FXF binary");
+    } else {
+        println!("Generating raw binary");
+    }
 
     let mut input_file = read_to_string(input_file_name).expect("cannot read file");
     println!("Parsing includes...");
@@ -310,13 +347,13 @@ fn main() {
 
     println!("Assembling...");
     for node in ast.unwrap() {
-        if let AstNode::LabelDefine(name) = node {
+        if let AstNode::LabelDefine {name, ..} = node {
             let mut address_table = LABEL_ADDRESSES.lock().unwrap();
-            address_table.insert(name.clone(), current_address);
+            address_table.insert(name.clone(), (current_address, false));
             std::mem::drop(address_table);
         } else if let AstNode::Constant {name, address} = node {
             let mut address_table = LABEL_ADDRESSES.lock().unwrap();
-            address_table.insert(name.clone(), address);
+            address_table.insert(name.clone(), (address, true));
             std::mem::drop(address_table);
         } else if let AstNode::Origin(origin_address) = node {
             assert!(origin_address > current_address);
@@ -341,11 +378,8 @@ fn main() {
     let table = LABEL_TARGETS.lock().unwrap();
     let address_table = LABEL_ADDRESSES.lock().unwrap();
 
-    //println!("{:#?}", table);
-    //println!("{:#010X?}", address_table);
-
-    let address_file = format_address_table(&address_table);
-    println!("{}", address_file);
+    //let address_file = format_address_table(&address_table);
+    //println!("{}", address_file);
 
     for (name, targets) in table.iter() {
         perform_backpatching(targets, *address_table.get(name).expect(&format!("Label not found: {}", name)));
@@ -354,9 +388,73 @@ fn main() {
     std::mem::drop(address_table);
 
     let mut binary: Vec<u8> = Vec::new();
+
+    // if we're generating a FXF binary, write out the header first
+    if is_fxf {
+        // magic bytes and version
+        binary.push('F' as u8);
+        binary.push('X' as u8);
+        binary.push('F' as u8);
+        binary.push(0);
+
+        let mut code_size = 0;
+        for instruction in &instructions {
+            code_size += &instruction.borrow().len();
+        }
+
+        // code size
+        binary.extend_from_slice(&u32::to_le_bytes(code_size as u32));
+        // code pointer
+        binary.extend_from_slice(&u32::to_le_bytes(0x24)); // code starts after the header
+
+        // extern table size
+        binary.extend_from_slice(&u32::to_le_bytes(0));
+        // extern table pointer
+        binary.extend_from_slice(&u32::to_le_bytes(0));
+
+        // global table size
+        binary.extend_from_slice(&u32::to_le_bytes(0));
+        // global table pointer
+        binary.extend_from_slice(&u32::to_le_bytes(0));
+
+        // reloc table size
+        binary.extend_from_slice(&u32::to_le_bytes(0));
+        // reloc table pointer
+        binary.extend_from_slice(&u32::to_le_bytes(0));
+    }
+
     for instruction in instructions {
         binary.extend_from_slice(&(instruction.borrow())[..]);
     }
+
+    // if we're generating a FXF binary, write the reloc table
+    if is_fxf {
+        // first get the current pointer to where we are in the binary
+        let reloc_ptr_bytes = u32::to_le_bytes(binary.len() as u32);
+
+        // write the reloc addresses to the end of the binary
+        let reloc_table = &*RELOC_ADDRESSES.lock().unwrap();
+        let mut reloc_table_size = 0;
+        for address in reloc_table {
+            let address_bytes = u32::to_le_bytes(*address);
+            binary.extend_from_slice(&address_bytes);
+            reloc_table_size += 4;
+        }
+
+        // write the reloc size to the FXF header
+        let reloc_table_size_bytes = u32::to_le_bytes(reloc_table_size);
+        binary[FXF_RELOC_SIZE]     = reloc_table_size_bytes[0];
+        binary[FXF_RELOC_SIZE + 1] = reloc_table_size_bytes[1];
+        binary[FXF_RELOC_SIZE + 2] = reloc_table_size_bytes[2];
+        binary[FXF_RELOC_SIZE + 3] = reloc_table_size_bytes[3];
+
+        // write the reloc pointer to the FXF header
+        binary[FXF_RELOC_PTR]     = reloc_ptr_bytes[0];
+        binary[FXF_RELOC_PTR + 1] = reloc_ptr_bytes[1];
+        binary[FXF_RELOC_PTR + 2] = reloc_ptr_bytes[2];
+        binary[FXF_RELOC_PTR + 3] = reloc_ptr_bytes[3];
+    }
+
     println!("Final binary size: {} bytes = {:.2} KiB = {:.2} MiB", binary.len(), binary.len() / 1024, binary.len() / 1048576);
 
     let mut output_file = File::create(output_file_name).unwrap();
@@ -453,7 +551,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
         Rule::instruction => parse_instruction(inner_pair.next().unwrap()),
         Rule::operand => parse_operand(inner_pair.next().unwrap(), is_pointer),
         Rule::constant => parse_constant(inner_pair),
-        Rule::label => parse_label(inner_pair.next().unwrap()),
+        Rule::label => parse_label(inner_pair.next().unwrap(), inner_pair.next()),
         Rule::data => parse_data(inner_pair.next().unwrap()),
         Rule::origin => parse_origin(inner_pair.next().unwrap()),
         Rule::include_bin => include_binary_file(inner_pair.next().unwrap()),
@@ -478,8 +576,22 @@ fn parse_constant(pairs: pest::iterators::Pairs<Rule>) -> AstNode {
     }
 }
 
-fn parse_label(pair: pest::iterators::Pair<Rule>) -> AstNode {
-    AstNode::LabelDefine(pair.as_str().to_string())
+fn parse_label(pair: pest::iterators::Pair<Rule>, next_pair: Option<pest::iterators::Pair<Rule>>) -> AstNode {
+    let mut name_pair = pair.clone();
+    let kind = match pair.as_rule() {
+        Rule::label_kind => {
+            let pair_inner = pair.clone().into_inner().next().unwrap();
+            name_pair = next_pair.unwrap();
+            match pair_inner.as_rule() {
+                Rule::label_external => LabelKind::External,
+                Rule::label_global => LabelKind::Global,
+                _ => unreachable!()
+            }
+        },
+        _ => LabelKind::Internal,
+    };
+    let node = AstNode::LabelDefine {name: name_pair.as_str().to_string(), kind};
+    node
 }
 
 fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
