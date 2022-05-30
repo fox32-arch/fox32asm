@@ -288,6 +288,10 @@ enum AstNode {
     DataHalf(u16),
     DataWord(u32),
     DataStr(String),
+    DataFill {
+        value: u8,
+        size: u32,
+    },
 
     IncludedBinary(Vec<u8>),
 
@@ -363,6 +367,9 @@ fn main() {
             let difference = (origin_address - current_address) as usize;
             current_address = origin_address;
             instructions.push(vec![0; difference].into());
+        } else if let AstNode::DataFill {value, size} = node {
+            current_address += size;
+            instructions.push(vec![value; size as usize].into());
         } else if let AstNode::IncludedBinary(binary_vec) = node {
             current_address += binary_vec.len() as u32;
             instructions.push(binary_vec.into());
@@ -629,6 +636,25 @@ fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
         Rule::data_str => {
             let string = pair.into_inner().next().unwrap().into_inner().next().unwrap().as_str();
             AstNode::DataStr(string.to_string())
+        },
+        Rule::data_fill => {
+            let value = {
+                let ast = parse_operand(pair.clone().into_inner().next().unwrap(), false);
+                if let AstNode::Immediate32(word) = ast {
+                    word as u8
+                } else {
+                    unreachable!()
+                }
+            };
+            let size = {
+                let ast = parse_operand(pair.into_inner().nth(1).unwrap(), false);
+                if let AstNode::Immediate32(word) = ast {
+                    word
+                } else {
+                    unreachable!()
+                }
+            };
+            AstNode::DataFill {value, size}
         },
         _ => panic!("Unsupported data: {}", pair.as_str()),
     }
