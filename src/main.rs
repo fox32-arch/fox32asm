@@ -298,8 +298,11 @@ enum AstNode {
     OriginPadded(u32),
 }
 
-fn format_address_table(m: &HashMap<String, u32>) -> String {
-    let mut v: Vec<(&String, &u32)> = m.into_iter().collect();
+fn format_address_table(m: &HashMap<String, (u32, bool)>) -> String {
+    let mut v: Vec<(&String, &u32)> = Vec::new();
+    for i in m.into_iter() {
+        v.push((i.0, &i.1.0));
+    }
     v.sort_by(|(_, v1), (_, v2)| u32::cmp(v1, v2));
     v.iter().map(|(k, v)| format!("{:#010X?} :: {}", v, k)).collect::<Vec<String>>().join("\n")
 }
@@ -384,8 +387,8 @@ fn main() {
     let table = LABEL_TARGETS.lock().unwrap();
     let address_table = LABEL_ADDRESSES.lock().unwrap();
 
-    //let address_file = format_address_table(&address_table);
-    //println!("{}", address_file);
+    let address_file = format_address_table(&address_table);
+    println!("{}", address_file);
 
     for (name, targets) in table.iter() {
         perform_backpatching(targets, *address_table.get(name).expect(&format!("Label not found: {}", name)));
