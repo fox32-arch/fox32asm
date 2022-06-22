@@ -35,12 +35,8 @@ lazy_static! {
 
 //const FXF_CODE_SIZE:   usize = 0x00000004;
 //const FXF_CODE_PTR:    usize = 0x00000008;
-//const FXF_EXTERN_SIZE: usize = 0x0000000C;
-//const FXF_EXTERN_PTR:  usize = 0x00000010;
-//const FXF_GLOABL_SIZE: usize = 0x00000014;
-//const FXF_GLOBAL_PTR:  usize = 0x00000018;
-const FXF_RELOC_SIZE:  usize = 0x0000001C;
-const FXF_RELOC_PTR:   usize = 0x00000020;
+const FXF_RELOC_SIZE:  usize = 0x0000000C;
+const FXF_RELOC_PTR:   usize = 0x00000010;
 
 #[derive(Debug, Clone)]
 struct BackpatchTarget {
@@ -414,17 +410,7 @@ fn main() {
         // code size
         binary.extend_from_slice(&u32::to_le_bytes(code_size as u32));
         // code pointer
-        binary.extend_from_slice(&u32::to_le_bytes(0x24)); // code starts after the header
-
-        // extern table size
-        binary.extend_from_slice(&u32::to_le_bytes(0));
-        // extern table pointer
-        binary.extend_from_slice(&u32::to_le_bytes(0));
-
-        // global table size
-        binary.extend_from_slice(&u32::to_le_bytes(0));
-        // global table pointer
-        binary.extend_from_slice(&u32::to_le_bytes(0));
+        binary.extend_from_slice(&u32::to_le_bytes(0x14)); // code starts after the header
 
         // reloc table size
         binary.extend_from_slice(&u32::to_le_bytes(0));
