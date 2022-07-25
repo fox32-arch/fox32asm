@@ -89,8 +89,8 @@ fn perform_backpatching(targets: &Vec<BackpatchTarget>, address: (u32, bool)) {
     for target in targets {
         target.write(target.size, address.0);
 
-        // if this label isn't const, then add it to the reloc table for FXF
-        if !address.1 {
+        // if this label isn't const or relative, then add it to the reloc table for FXF
+        if !address.1 && !target.is_relative {
             let mut reloc_table = RELOC_ADDRESSES.lock().unwrap();
             reloc_table.push(target.get_backpatch_location());
         }
