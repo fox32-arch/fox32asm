@@ -104,7 +104,8 @@ instruction_one = @{
     "rcall" |
     "rloop" |
     "push"  |
-    "pop"
+    "pop"   |
+    "int"
 }
 
 instruction_two = @{

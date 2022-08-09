@@ -177,6 +177,7 @@ enum InstructionOne {
     Rloop,
     Push,
     Pop,
+    Int,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -896,6 +897,7 @@ fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode
             },
             "push"  => InstructionOne::Push,
             "pop"   => InstructionOne::Pop,
+            "int"   => InstructionOne::Int,
             _ => panic!("Unsupported conditional instruction (one): {}", pair.as_str()),
         },
         operand: Box::new(operand),
@@ -1033,6 +1035,8 @@ fn instruction_to_byte(node: &AstNode) -> u8 {
                 InstructionOne::Rloop => 0x29 | size_to_byte(size),
                 InstructionOne::Push  => 0x0A | size_to_byte(size),
                 InstructionOne::Pop   => 0x1A | size_to_byte(size),
+                InstructionOne::Int   => 0x2C | size_to_byte(size),
+
             }
         }
         AstNode::OperationTwo {size, instruction, ..} => {
