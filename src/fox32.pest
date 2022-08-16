@@ -90,7 +90,9 @@ instruction_zero = @{
     "reti" |
     "ret"  |
     "ise"  |
-    "icl"
+    "icl"  |
+    "mse"  |
+    "mcl"
 }
 
 instruction_one = @{
@@ -105,7 +107,8 @@ instruction_one = @{
     "rloop" |
     "push"  |
     "pop"   |
-    "int"
+    "int"   |
+    "tlb"
 }
 
 instruction_two = @{

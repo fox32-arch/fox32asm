@@ -161,6 +161,8 @@ enum InstructionZero {
     Reti,
     Ise,
     Icl,
+    Mse,
+    Mcl,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -178,6 +180,7 @@ enum InstructionOne {
     Push,
     Pop,
     Int,
+    Tlb,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -849,6 +852,8 @@ fn parse_instruction_zero(pair: pest::iterators::Pair<Rule>, condition: Conditio
             "reti" => InstructionZero::Reti,
             "ise"  => InstructionZero::Ise,
             "icl"  => InstructionZero::Icl,
+            "mse"  => InstructionZero::Mse,
+            "mcl"  => InstructionZero::Mcl,
             _ => panic!("Unsupported conditional instruction (zero): {}", pair.as_str()),
         },
     }
@@ -898,6 +903,7 @@ fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode
             "push"  => InstructionOne::Push,
             "pop"   => InstructionOne::Pop,
             "int"   => InstructionOne::Int,
+            "tlb"   => InstructionOne::Tlb,
             _ => panic!("Unsupported conditional instruction (one): {}", pair.as_str()),
         },
         operand: Box::new(operand),
@@ -1020,6 +1026,8 @@ fn instruction_to_byte(node: &AstNode) -> u8 {
                 InstructionZero::Reti => 0x3A | size_to_byte(&Size::Word),
                 InstructionZero::Ise  => 0x0C | size_to_byte(&Size::Word),
                 InstructionZero::Icl  => 0x1C | size_to_byte(&Size::Word),
+                InstructionZero::Mse  => 0x0D | size_to_byte(&Size::Word),
+                InstructionZero::Mcl  => 0x1D | size_to_byte(&Size::Word),
             }
         }
         AstNode::OperationOne {size, instruction, ..} => {
@@ -1036,7 +1044,7 @@ fn instruction_to_byte(node: &AstNode) -> u8 {
                 InstructionOne::Push  => 0x0A | size_to_byte(size),
                 InstructionOne::Pop   => 0x1A | size_to_byte(size),
                 InstructionOne::Int   => 0x2C | size_to_byte(size),
-
+                InstructionOne::Tlb   => 0x2D | size_to_byte(size),
             }
         }
         AstNode::OperationTwo {size, instruction, ..} => {
