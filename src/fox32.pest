@@ -108,7 +108,8 @@ instruction_one = @{
     "push"  |
     "pop"   |
     "int"   |
-    "tlb"
+    "tlb"   |
+    "flp"
 }
 
 instruction_two = @{
