@@ -158,4 +158,4 @@ body_str_chars = {
 }
 
 register = ${ "r" ~ register_num }
-register_num = @{ ASCII_DIGIT+ | "sp" }
+register_num = @{ ASCII_DIGIT+ | "sp" | "esp" }

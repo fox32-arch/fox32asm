@@ -813,8 +813,9 @@ fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> Ast
                 Rule::register => {
                     let register_num_pair = operand_value_pair.into_inner().next().unwrap();
                     let register_num = if register_num_pair.as_str() == "sp" { 32 }
+                    else if register_num_pair.as_str() == "esp" { 33 }
                     else { register_num_pair.as_str().parse::<u8>().unwrap() };
-                    if register_num > 32 { panic!("register number out of range"); }
+                    if register_num > 33 { panic!("register number out of range"); }
                     if is_pointer {
                         AstNode::RegisterPointer(register_num)
                     } else {
