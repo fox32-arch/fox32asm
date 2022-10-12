@@ -598,26 +598,18 @@ fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("{:#?}", pair);
     match pair.as_rule() {
         Rule::data_byte => {
-            let ast = parse_operand(pair.into_inner().next().unwrap(), false);
-            let byte = {
-                if let AstNode::Immediate32(word) = ast {
-                    word as u8
-                } else {
-                    unreachable!()
-                }
-            };
-            AstNode::DataByte(byte)
+            match parse_operand(pair.into_inner().next().unwrap(), false) {
+                AstNode::Immediate32(half) => AstNode::DataByte(half as u8),
+                AstNode::LabelOperand {name, size, is_relative} => AstNode::LabelOperand {name, size, is_relative},
+                _ => unreachable!(),
+            }
         },
         Rule::data_half => {
-            let ast = parse_operand(pair.into_inner().next().unwrap(), false);
-            let word = {
-                if let AstNode::Immediate32(word) = ast {
-                    word as u16
-                } else {
-                    unreachable!()
-                }
-            };
-            AstNode::DataHalf(word)
+            match parse_operand(pair.into_inner().next().unwrap(), false) {
+                AstNode::Immediate32(half) => AstNode::DataHalf(half as u16),
+                AstNode::LabelOperand {name, size, is_relative} => AstNode::LabelOperand {name, size, is_relative},
+                _ => unreachable!(),
+            }
         },
         Rule::data_word => {
             match parse_operand(pair.into_inner().next().unwrap(), false) {
