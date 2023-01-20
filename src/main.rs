@@ -481,7 +481,7 @@ fn include_text_file(line_number: usize, text: &str, input_file: String) -> Stri
         }
     }
 
-    let mut included_file = read_to_string(source_path).expect("failed to include file");
+    let mut included_file = read_to_string(source_path).expect(&format!("failed to include file \"{}\"", path_string));
     included_file.push('\n');
 
     let mut end_of_original_file = String::new();
