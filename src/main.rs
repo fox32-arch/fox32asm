@@ -356,6 +356,11 @@ fn main() {
     for node in ast.unwrap() {
         if let AstNode::LabelDefine {name, ..} = node {
             let mut address_table = LABEL_ADDRESSES.lock().unwrap();
+            if let Some(_) = address_table.get(&name) {
+                // this label already exists, print an error and exit
+                println!("Label \"{}\" was defined more than once!", name);
+                exit(1);
+            }
             address_table.insert(name.clone(), (current_address, false));
             std::mem::drop(address_table);
         } else if let AstNode::Constant {name, address} = node {
