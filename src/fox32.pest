@@ -116,8 +116,11 @@ instruction_two = @{
     "add"  |
     "sub"  |
     "mul"  |
+    "imul" |
     "div"  |
+    "idiv" |
     "rem"  |
+    "irem" |
     "and"  |
     "or"   |
     "xor"  |
