@@ -80,7 +80,7 @@ instruction = {
 }
 
 instruction_conditional = {
-    instruction_zero          |
+    instruction_zero ~ size? |
     instruction_one ~ size? ~ operand |
     instruction_two ~ size? ~ operand ~ "," ~ operand
 }
