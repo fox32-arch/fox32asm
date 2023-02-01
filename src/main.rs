@@ -351,13 +351,19 @@ fn main() {
     }
 
     println!("Parsing file...");
-    let ast = parse(&input_file);
+    let ast = match parse(&input_file) {
+        Ok(x) => x,
+        Err(x) => {
+            print!("{:#?}\n", x);
+            std::process::exit(1);
+        },
+    };
 
     let mut instructions: Vec<AssembledInstruction> = Vec::new();
     let mut current_address: u32 = 0;
 
     println!("Assembling...");
-    for node in ast.unwrap() {
+    for node in ast {
         if let AstNode::LabelDefine {name, ..} = node {
             let mut address_table = LABEL_ADDRESSES.lock().unwrap();
             if let Some(_) = address_table.get(&name) {
@@ -525,7 +531,7 @@ fn include_binary_file(pair: pest::iterators::Pair<Rule>) -> AstNode {
 
 fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
     let mut ast = vec![];
-    let pairs = Fox32Parser::parse(Rule::assembly, source).expect("parse was unsuccessful");
+    let pairs = Fox32Parser::parse(Rule::assembly, source)?;
 
     for pair in pairs.peek().unwrap().into_inner() {
         match pair.as_rule() {
