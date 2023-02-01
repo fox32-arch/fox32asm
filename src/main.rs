@@ -291,6 +291,7 @@ enum AstNode {
     DataHalf(u16),
     DataWord(u32),
     DataStr(String),
+    DataStrZero(String),
     DataFill {
         value: u8,
         size: u32,
@@ -629,6 +630,10 @@ fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
         Rule::data_str => {
             let string = pair.into_inner().next().unwrap().into_inner().next().unwrap().as_str();
             AstNode::DataStr(string.to_string())
+        },
+        Rule::data_strz => {
+            let string = pair.into_inner().next().unwrap().into_inner().next().unwrap().as_str();
+            AstNode::DataStrZero(string.to_string())
         },
         Rule::data_fill => {
             let value = {
@@ -981,6 +986,11 @@ fn assemble_node(node: AstNode) -> AssembledInstruction {
         },
         AstNode::DataStr(string) => {
             return string.as_bytes().into();
+        },
+        AstNode::DataStrZero(string) => {
+            let mut bytes: Vec<u8> = string.as_bytes().into();
+            bytes.push(0);
+            return bytes.into();
         },
         AstNode::LabelOperand {name, size, is_relative} => {
             // label is used on its own, not as an operand:
