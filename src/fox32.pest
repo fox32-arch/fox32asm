@@ -19,12 +19,14 @@ data = {
     data_half |
     data_word |
     data_str  |
+    data_strz |
     data_fill
 }
 data_byte = { "data.8" ~ operand_value }
 data_half = { "data.16" ~ operand_value }
 data_word = { "data.32" ~ operand_value }
 data_str  = { "data.str" ~ immediate_str }
+data_strz = { "data.strz" ~ immediate_str }
 data_fill = { "data.fill" ~ operand_value ~ "," ~ operand_value }
 
 constant = { "const" ~ constant_name ~ operand_value }
