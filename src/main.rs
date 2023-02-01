@@ -244,6 +244,7 @@ enum LabelKind {
 #[derive(PartialEq, Debug, Clone)]
 enum AstNode {
     OperationZero {
+        size: Size,
         condition: Condition,
         instruction: InstructionZero,
     },
@@ -351,13 +352,19 @@ fn main() {
     }
 
     println!("Parsing file...");
-    let ast = parse(&input_file);
+    let ast = match parse(&input_file) {
+        Ok(x) => x,
+        Err(x) => {
+            print!("{:#?}\n", x);
+            std::process::exit(1);
+        },
+    };
 
     let mut instructions: Vec<AssembledInstruction> = Vec::new();
     let mut current_address: u32 = 0;
 
     println!("Assembling...");
-    for node in ast.unwrap() {
+    for node in ast {
         if let AstNode::LabelDefine {name, ..} = node {
             let mut address_table = LABEL_ADDRESSES.lock().unwrap();
             if let Some(_) = address_table.get(&name) {
@@ -525,7 +532,7 @@ fn include_binary_file(pair: pest::iterators::Pair<Rule>) -> AstNode {
 
 fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
     let mut ast = vec![];
-    let pairs = Fox32Parser::parse(Rule::assembly, source).expect("parse was unsuccessful");
+    let pairs = Fox32Parser::parse(Rule::assembly, source)?;
 
     for pair in pairs.peek().unwrap().into_inner() {
         match pair.as_rule() {
@@ -723,7 +730,15 @@ fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
             let mut inner_pair = pair.into_inner();
             let instruction_conditional_pair = inner_pair.next().unwrap();
             match instruction_conditional_pair.as_rule() {
-                Rule::instruction_zero => parse_instruction_zero(instruction_conditional_pair, condition),
+                Rule::instruction_zero => {
+                    if let Some(inner) = inner_pair.peek() {
+                        if inner.as_rule() == Rule::size {
+                            size = parse_size(&inner_pair.next().unwrap());
+                        }
+                    }
+                    *CURRENT_SIZE.lock().unwrap() = size;
+                    parse_instruction_zero(instruction_conditional_pair, size, condition)
+                }
                 Rule::instruction_one => {
                     if inner_pair.peek().unwrap().as_rule() == Rule::size {
                         size = parse_size(&inner_pair.next().unwrap());
@@ -853,8 +868,9 @@ fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> Ast
     }
 }
 
-fn parse_instruction_zero(pair: pest::iterators::Pair<Rule>, condition: Condition) -> AstNode {
+fn parse_instruction_zero(pair: pest::iterators::Pair<Rule>, size: Size, condition: Condition) -> AstNode {
     AstNode::OperationZero {
+        size: size,
         condition: condition,
         instruction: match pair.as_str() {
             "nop"  => InstructionZero::Nop,
@@ -1038,17 +1054,17 @@ fn size_to_byte(size: &Size) -> u8 {
 
 fn instruction_to_byte(node: &AstNode) -> u8 {
     match node {
-        AstNode::OperationZero {instruction, ..} => {
+        AstNode::OperationZero {size, instruction, ..} => {
             match instruction {
-                InstructionZero::Nop  => 0x00 | size_to_byte(&Size::Word),
-                InstructionZero::Halt => 0x10 | size_to_byte(&Size::Word),
-                InstructionZero::Brk  => 0x20 | size_to_byte(&Size::Word),
-                InstructionZero::Ret  => 0x2A | size_to_byte(&Size::Word),
-                InstructionZero::Reti => 0x3A | size_to_byte(&Size::Word),
-                InstructionZero::Ise  => 0x0C | size_to_byte(&Size::Word),
-                InstructionZero::Icl  => 0x1C | size_to_byte(&Size::Word),
-                InstructionZero::Mse  => 0x0D | size_to_byte(&Size::Word),
-                InstructionZero::Mcl  => 0x1D | size_to_byte(&Size::Word),
+                InstructionZero::Nop  => 0x00 | size_to_byte(size),
+                InstructionZero::Halt => 0x10 | size_to_byte(size),
+                InstructionZero::Brk  => 0x20 | size_to_byte(size),
+                InstructionZero::Ret  => 0x2A | size_to_byte(size),
+                InstructionZero::Reti => 0x3A | size_to_byte(size),
+                InstructionZero::Ise  => 0x0C | size_to_byte(size),
+                InstructionZero::Icl  => 0x1C | size_to_byte(size),
+                InstructionZero::Mse  => 0x0D | size_to_byte(size),
+                InstructionZero::Mcl  => 0x1D | size_to_byte(size),
             }
         }
         AstNode::OperationOne {size, instruction, ..} => {
