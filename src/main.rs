@@ -609,21 +609,24 @@ fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
         Rule::data_byte => {
             match parse_operand(pair.into_inner().next().unwrap(), false) {
                 AstNode::Immediate32(half) => AstNode::DataByte(half as u8),
-                AstNode::LabelOperand {name, size, is_relative} => AstNode::LabelOperand {name, size, is_relative},
+                AstNode::LabelOperand {name, size: _, is_relative} =>
+                    AstNode::LabelOperand {name, size: Size::Byte, is_relative},
                 _ => unreachable!(),
             }
         },
         Rule::data_half => {
             match parse_operand(pair.into_inner().next().unwrap(), false) {
                 AstNode::Immediate32(half) => AstNode::DataHalf(half as u16),
-                AstNode::LabelOperand {name, size, is_relative} => AstNode::LabelOperand {name, size, is_relative},
+                AstNode::LabelOperand {name, size: _, is_relative} =>
+                    AstNode::LabelOperand {name, size: Size::Half, is_relative},
                 _ => unreachable!(),
             }
         },
         Rule::data_word => {
             match parse_operand(pair.into_inner().next().unwrap(), false) {
                 AstNode::Immediate32(word) => AstNode::DataWord(word),
-                AstNode::LabelOperand {name, size, is_relative} => AstNode::LabelOperand {name, size, is_relative},
+                AstNode::LabelOperand {name, size: _, is_relative} =>
+                    AstNode::LabelOperand {name, size: Size::Word, is_relative},
                 _ => unreachable!(),
             }
         },
