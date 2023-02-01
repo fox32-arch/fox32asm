@@ -604,6 +604,7 @@ fn parse_label(pair: pest::iterators::Pair<Rule>, next_pair: Option<pest::iterat
 
 fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("{:#?}", pair);
+    *CURRENT_SIZE.lock().unwrap() = Size::Word;
     match pair.as_rule() {
         Rule::data_byte => {
             match parse_operand(pair.into_inner().next().unwrap(), false) {
