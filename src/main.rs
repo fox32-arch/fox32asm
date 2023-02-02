@@ -1118,6 +1118,18 @@ fn instruction_to_byte(node: &AstNode) -> u8 {
     }
 }
 
+fn condition_to_bits(condition: &Condition) -> u8 {
+    match condition {
+        Condition::Always => 0x00,
+        Condition::Zero => 0x10,
+        Condition::NotZero => 0x20,
+        Condition::Carry => 0x30,
+        Condition::NotCarry => 0x40,
+        Condition::GreaterThan => 0x50,
+        Condition::LessThanEqualTo => 0x60,
+    }
+}
+
 fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
     let source: u8 = match node {
         AstNode::OperationZero {..} => 0x00,
@@ -1156,39 +1168,9 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
     };
     let condition: u8 = match node {
-        AstNode::OperationZero {condition, ..} => {
-            match condition {
-                Condition::Always => 0x00,
-                Condition::Zero => 0x10,
-                Condition::NotZero => 0x20,
-                Condition::Carry => 0x30,
-                Condition::NotCarry => 0x40,
-                Condition::GreaterThan => 0x50,
-                Condition::LessThanEqualTo => 0x60,
-            }
-        }
-        AstNode::OperationOne {condition, ..} => {
-            match condition {
-                Condition::Always => 0x00,
-                Condition::Zero => 0x10,
-                Condition::NotZero => 0x20,
-                Condition::Carry => 0x30,
-                Condition::NotCarry => 0x40,
-                Condition::GreaterThan => 0x50,
-                Condition::LessThanEqualTo => 0x60,
-            }
-        }
-        AstNode::OperationTwo {condition, ..} => {
-            match condition {
-                Condition::Always => 0x00,
-                Condition::Zero => 0x10,
-                Condition::NotZero => 0x20,
-                Condition::Carry => 0x30,
-                Condition::NotCarry => 0x40,
-                Condition::GreaterThan => 0x50,
-                Condition::LessThanEqualTo => 0x60,
-            }
-        }
+        AstNode::OperationZero {condition, ..} => condition_to_bits(condition),
+        AstNode::OperationOne {condition, ..} => condition_to_bits(condition),
+        AstNode::OperationTwo {condition, ..} => condition_to_bits(condition),
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
     };
     condition | source | destination
