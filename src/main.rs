@@ -7,7 +7,7 @@ extern crate pest_derive;
 use pest::error::Error;
 use pest::Parser;
 use core::panic;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use std::env;
 use std::fs::{canonicalize, read, read_to_string, File};
 use std::fmt::Debug;
@@ -28,7 +28,7 @@ lazy_static! {
     static ref SOURCE_PATH: Mutex<PathBuf> = Mutex::new(PathBuf::new());
     static ref CURRENT_SIZE: Mutex<Size> = Mutex::new(Size::Word);
     static ref CURRENT_CONDITION: Mutex<Condition> = Mutex::new(Condition::Always);
-    static ref LABEL_TARGETS: Mutex<HashMap<String, Vec<BackpatchTarget>>> = Mutex::new(HashMap::new());
+    static ref LABEL_TARGETS: Mutex<BTreeMap<String, Vec<BackpatchTarget>>> = Mutex::new(BTreeMap::new());
     static ref LABEL_ADDRESSES: Mutex<HashMap<String, (u32, bool)>> = Mutex::new(HashMap::new());
     static ref RELOC_ADDRESSES: Mutex<Vec<u32>> = Mutex::new(Vec::new());
 }
