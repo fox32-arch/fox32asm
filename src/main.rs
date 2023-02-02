@@ -996,7 +996,7 @@ fn assemble_node(node: AstNode) -> AssembledInstruction {
             // label is used on its own, not as an operand:
             // LabelOperand was previously only checked as part of operands
             let instruction = AssembledInstruction::new();
-            generate_backpatch_immediate(&name, &size, &instruction, is_relative);
+            generate_backpatch_immediate(&name, size, &instruction, is_relative);
             return instruction;
         },
         _ => {}
@@ -1024,7 +1024,7 @@ fn assemble_node(node: AstNode) -> AssembledInstruction {
 //     vec
 // }
 
-fn size_to_byte(size: &Size) -> u8 {
+fn size_to_byte(size: Size) -> u8 {
     match size {
         Size::Byte => 0b00000000,
         Size::Half => 0b01000000,
@@ -1033,7 +1033,7 @@ fn size_to_byte(size: &Size) -> u8 {
 }
 
 fn instruction_to_byte(node: &AstNode) -> u8 {
-    match node {
+    match *node {
         AstNode::OperationZero {size, instruction, ..} => {
             match instruction {
                 InstructionZero::Nop  => 0x00 | size_to_byte(size),
@@ -1156,7 +1156,7 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
     condition | source | destination
 }
 
-fn generate_backpatch_immediate(name: &String, size: &Size, instruction: &AssembledInstruction, is_relative: bool) {
+fn generate_backpatch_immediate(name: &String, size: Size, instruction: &AssembledInstruction, is_relative: bool) {
     let index = instruction.borrow().len();
     {
         let mut vec = instruction.borrow_mut();
@@ -1178,7 +1178,7 @@ fn generate_backpatch_immediate(name: &String, size: &Size, instruction: &Assemb
             table.get_mut(name).unwrap()
         }
     };
-    targets.push(BackpatchTarget::new(instruction, index, *size, is_relative));
+    targets.push(BackpatchTarget::new(instruction, index, size, is_relative));
 }
 
 fn operand_to_immediate_value(instruction: &AssembledInstruction, node: &AstNode){
@@ -1192,13 +1192,13 @@ fn operand_to_immediate_value(instruction: &AssembledInstruction, node: &AstNode
         AstNode::Immediate32     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
         AstNode::ImmediatePointer(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
 
-        AstNode::LabelOperand        {ref name, ref size, is_relative} => {
+        AstNode::LabelOperand        {ref name, size, is_relative} => {
             std::mem::drop(vec);
             generate_backpatch_immediate(name, size, instruction, is_relative);
         }
         AstNode::LabelOperandPointer {ref name, is_relative} => {
             std::mem::drop(vec);
-            generate_backpatch_immediate(name, &Size::Word, instruction, is_relative);
+            generate_backpatch_immediate(name, Size::Word, instruction, is_relative);
         }
 
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
