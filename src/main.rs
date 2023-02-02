@@ -1219,91 +1219,51 @@ fn generate_backpatch_immediate(name: &String, size: &Size, instruction: &Assemb
     targets.push(BackpatchTarget::new(instruction, index, *size, is_relative));
 }
 
+fn operand_to_immediate_value(instruction: &AssembledInstruction, node: &AstNode){
+    let mut vec = instruction.borrow_mut();
+    match *node {
+        AstNode::Register       (register) => vec.push(register),
+        AstNode::RegisterPointer(register) => vec.push(register),
+
+        AstNode::Immediate8      (immediate) => vec.push(immediate),
+        AstNode::Immediate16     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
+        AstNode::Immediate32     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
+        AstNode::ImmediatePointer(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
+
+        AstNode::LabelOperand        {ref name, ref size, is_relative} => {
+            std::mem::drop(vec);
+            generate_backpatch_immediate(name, size, instruction, is_relative);
+        }
+        AstNode::LabelOperandPointer {ref name, is_relative} => {
+            std::mem::drop(vec);
+            generate_backpatch_immediate(name, &Size::Word, instruction, is_relative);
+        }
+
+        _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
+    }
+}
+
 fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction) {
     {
-        let mut vec = instruction.borrow_mut();
-
         match node {
             AstNode::OperationZero {..} => {}
 
-            AstNode::OperationOne {operand, ..} => {
-                match *operand.as_ref() {
-                    AstNode::Register       (register) => vec.push(register),
-                    AstNode::RegisterPointer(register) => vec.push(register),
+            AstNode::OperationOne {operand, ..} =>
+                operand_to_immediate_value(instruction, operand.as_ref()),
 
-                    AstNode::Immediate8      (immediate) => vec.push(immediate),
-                    AstNode::Immediate16     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-                    AstNode::Immediate32     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-                    AstNode::ImmediatePointer(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-
-                    AstNode::LabelOperand        {ref name, ref size, is_relative} => {
-                        std::mem::drop(vec);
-                        generate_backpatch_immediate(name, size, instruction, is_relative);
-                    }
-                    AstNode::LabelOperandPointer {ref name, is_relative} => {
-                        std::mem::drop(vec);
-                        generate_backpatch_immediate(name, &Size::Word, instruction, is_relative);
-                    }
-
-                    _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
-                }
-            }
-
-            AstNode::OperationTwo {rhs, ..} => {
-                match *rhs.as_ref() {
-                    AstNode::Register       (register) => vec.push(register),
-                    AstNode::RegisterPointer(register) => vec.push(register),
-
-                    AstNode::Immediate8      (immediate) => vec.push(immediate),
-                    AstNode::Immediate16     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-                    AstNode::Immediate32     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-                    AstNode::ImmediatePointer(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-
-                    AstNode::LabelOperand        {ref name, ref size, is_relative} => {
-                        std::mem::drop(vec);
-                        generate_backpatch_immediate(name, size, instruction, is_relative);
-                    }
-                    AstNode::LabelOperandPointer {ref name, is_relative} => {
-                        std::mem::drop(vec);
-                        generate_backpatch_immediate(name, &Size::Word, instruction, is_relative);
-                    }
-
-                    _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
-                }
-            }
+            AstNode::OperationTwo {rhs, ..} =>
+                operand_to_immediate_value(instruction, rhs.as_ref()),
 
             _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
         }
     }
 
-    let mut vec = instruction.borrow_mut();
-
     match node {
         AstNode::OperationZero {..} => {}
         AstNode::OperationOne  {..} => {}
 
-        AstNode::OperationTwo  {lhs, ..} => {
-            match *lhs.as_ref() {
-                AstNode::Register       (register) => vec.push(register),
-                AstNode::RegisterPointer(register) => vec.push(register),
-
-                AstNode::Immediate8      (immediate) => vec.push(immediate),
-                AstNode::Immediate16     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-                AstNode::Immediate32     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-                AstNode::ImmediatePointer(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-
-                AstNode::LabelOperand        {ref name, ref size, is_relative} => {
-                    std::mem::drop(vec);
-                    generate_backpatch_immediate(name, size, instruction, is_relative);
-                }
-                AstNode::LabelOperandPointer {ref name, is_relative} => {
-                    std::mem::drop(vec);
-                    generate_backpatch_immediate(name, &Size::Word, instruction, is_relative);
-                }
-
-                _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
-            }
-        }
+        AstNode::OperationTwo  {lhs, ..} =>
+            operand_to_immediate_value(instruction, lhs.as_ref()),
 
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
     };
