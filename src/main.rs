@@ -770,6 +770,18 @@ fn remove_underscores(input: &str) -> String {
     String::from_iter(input.chars().filter(|c| *c != '_'))
 }
 
+fn immediate_to_astnode(immediate: u32, size: Size, is_pointer: bool) -> AstNode {
+    if is_pointer {
+        AstNode::ImmediatePointer(immediate)
+    } else {
+        match size {
+            Size::Byte => AstNode::Immediate8(immediate as u8),
+            Size::Half => AstNode::Immediate16(immediate as u16),
+            Size::Word => AstNode::Immediate32(immediate),
+        }
+    }
+}
+
 fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> AstNode {
     //println!("parse_operand: {:#?}", pair); // debug
     let size = *CURRENT_SIZE.lock().unwrap();
@@ -785,54 +797,22 @@ fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> Ast
                 Rule::immediate_bin => {
                     let body_bin_str = operand_value_pair.into_inner().next().unwrap().as_str();
                     let immediate = u32::from_str_radix(&remove_underscores(body_bin_str), 2).unwrap();
-                    if is_pointer {
-                        AstNode::ImmediatePointer(immediate)
-                    } else {
-                        match size {
-                            Size::Byte => AstNode::Immediate8(immediate as u8),
-                            Size::Half => AstNode::Immediate16(immediate as u16),
-                            Size::Word => AstNode::Immediate32(immediate),
-                        }
-                    }
+                    immediate_to_astnode(immediate, size, is_pointer)
                 }
                 Rule::immediate_hex => {
                     let body_hex_str = operand_value_pair.into_inner().next().unwrap().as_str();
                     let immediate = u32::from_str_radix(&remove_underscores(body_hex_str), 16).unwrap();
-                    if is_pointer {
-                        AstNode::ImmediatePointer(immediate)
-                    } else {
-                        match size {
-                            Size::Byte => AstNode::Immediate8(immediate as u8),
-                            Size::Half => AstNode::Immediate16(immediate as u16),
-                            Size::Word => AstNode::Immediate32(immediate),
-                        }
-                    }
+                    immediate_to_astnode(immediate, size, is_pointer)
                 }
                 Rule::immediate_dec => {
                     let body_dec_str = operand_value_pair.into_inner().next().unwrap().as_str();
                     let immediate = remove_underscores(body_dec_str).parse::<u32>().unwrap();
-                    if is_pointer {
-                        AstNode::ImmediatePointer(immediate)
-                    } else {
-                        match size {
-                            Size::Byte => AstNode::Immediate8(immediate as u8),
-                            Size::Half => AstNode::Immediate16(immediate as u16),
-                            Size::Word => AstNode::Immediate32(immediate),
-                        }
-                    }
+                    immediate_to_astnode(immediate, size, is_pointer)
                 }
                 Rule::immediate_char => {
                     let body_char_str = operand_value_pair.into_inner().next().unwrap().as_str();
                     let immediate = body_char_str.chars().nth(0).unwrap() as u8 as u32;
-                    if is_pointer {
-                        AstNode::ImmediatePointer(immediate)
-                    } else {
-                        match size {
-                            Size::Byte => AstNode::Immediate8(immediate as u8),
-                            Size::Half => AstNode::Immediate16(immediate as u16),
-                            Size::Word => AstNode::Immediate32(immediate),
-                        }
-                    }
+                    immediate_to_astnode(immediate, size, is_pointer)
                 }
                 Rule::register => {
                     let register_num_pair = operand_value_pair.into_inner().next().unwrap();
