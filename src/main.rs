@@ -355,8 +355,8 @@ fn main() {
     let ast = match parse(&input_file) {
         Ok(x) => x,
         Err(x) => {
-            print!("{:#?}\n", x);
-            std::process::exit(1);
+            println!("{:#?}", x);
+            exit(1);
         },
     };
 
