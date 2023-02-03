@@ -148,8 +148,8 @@ body_bin       = @{ (ASCII_BIN_DIGIT | "_")+ }
 immediate_hex  = ${ "0x" ~ body_hex }
 body_hex       = @{ (ASCII_HEX_DIGIT | "_")+ }
 
-immediate_dec  = ${ body_dec }
-body_dec       = @{ (ASCII_DIGIT | "_")+ }
+immediate_dec  = ${ ASCII_DIGIT ~ body_dec }
+body_dec       = @{ (ASCII_DIGIT | "_")* }
 
 immediate_char = ${ "'" ~ body_char ~ "'" }
 body_char      = @{ '\x00'..'\x7F' }
