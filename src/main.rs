@@ -805,8 +805,8 @@ fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> Ast
                     immediate_to_astnode(immediate, size, is_pointer)
                 }
                 Rule::immediate_dec => {
-                    let body_dec_str = operand_value_pair.into_inner().next().unwrap().as_str();
-                    let immediate = remove_underscores(body_dec_str).parse::<u32>().unwrap();
+                    let dec_str = operand_value_pair.as_span().as_str();
+                    let immediate = remove_underscores(dec_str).parse::<u32>().unwrap();
                     immediate_to_astnode(immediate, size, is_pointer)
                 }
                 Rule::immediate_char => {
