@@ -516,18 +516,23 @@ fn include_text_file(line_number: usize, text: &str, input_file: String) -> Stri
     final_file
 }
 
-fn include_binary_file(pair: pest::iterators::Pair<Rule>) -> AstNode {
+fn include_binary_file(pair: pest::iterators::Pair<Rule>, optional: bool) -> AstNode {
     let path_string = pair.into_inner().next().unwrap().as_str().trim();
-    //let path = canonicalize(path_string).expect(&format!("failed to include file \"{}\"", path_string));
 
     let mut source_path = SOURCE_PATH.lock().unwrap().clone();
     source_path.push(path_string);
 
     println!("Including file as binary data: {:#?}", source_path.file_name().expect("invalid filename"));
 
-    let binary = read(source_path).expect("failed to include file");
+    let binary = read(&source_path);
+    if binary.is_err() && optional {
+        println!("Optional include was not found: {:#?}", source_path.file_name().expect("invalid filename"));
+        return AstNode::IncludedBinary(vec![]);
+    } else if binary.is_err() {
+        panic!("failed to include file");
+    }
 
-    AstNode::IncludedBinary(binary)
+    AstNode::IncludedBinary(binary.unwrap())
 }
 
 fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
@@ -570,7 +575,8 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
         Rule::label => parse_label(inner_pair.next().unwrap(), inner_pair.next()),
         Rule::data => parse_data(inner_pair.next().unwrap()),
         Rule::origin => parse_origin(inner_pair.next().unwrap()),
-        Rule::include_bin => include_binary_file(inner_pair.next().unwrap()),
+        Rule::include_bin => include_binary_file(inner_pair.next().unwrap(), false),
+        Rule::include_bin_optional => include_binary_file(inner_pair.next().unwrap(), true),
         _ => todo!("{:#?}", pair_rule),
     }
 }
