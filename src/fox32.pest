@@ -65,6 +65,13 @@ size = @{
     ".32"
 }
 
+incdec_amount = @{
+    "1"  |
+    "2"  |
+    "4"  |
+    "8"
+}
+
 condition = @{
     "ifz"    |
     "ifnz"   |
@@ -83,6 +90,7 @@ instruction = {
 instruction_conditional = {
     instruction_zero ~ size? |
     instruction_one ~ size? ~ operand |
+    instruction_incdec ~ size? ~ operand ~ ("," ~ incdec_amount)? |
     instruction_two ~ size? ~ operand ~ "," ~ operand
 }
 
@@ -99,8 +107,6 @@ instruction_zero = @{
 }
 
 instruction_one = @{
-    "inc"   |
-    "dec"   |
     "not"   |
     "jmp"   |
     "call"  |
@@ -113,6 +119,11 @@ instruction_one = @{
     "int"   |
     "tlb"   |
     "flp"
+}
+
+instruction_incdec = @{
+    "inc"   |
+    "dec"
 }
 
 instruction_two = @{

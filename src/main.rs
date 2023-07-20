@@ -168,8 +168,6 @@ enum InstructionZero {
 #[derive(PartialEq, Debug, Clone, Copy)]
 enum InstructionOne {
     // one operand
-    Inc,
-    Dec,
     Not,
     Jmp,
     Call,
@@ -182,6 +180,13 @@ enum InstructionOne {
     Int,
     Tlb,
     Flp,
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+enum InstructionIncDec {
+    // one or two operands
+    Inc,
+    Dec,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -253,6 +258,13 @@ enum AstNode {
         condition: Condition,
         instruction: InstructionOne,
         operand: Box<AstNode>,
+    },
+    OperationIncDec {
+        size: Size,
+        condition: Condition,
+        instruction: InstructionIncDec,
+        lhs: Box<AstNode>,
+        rhs: Box<AstNode>,
     },
     OperationTwo {
         size: Size,
@@ -713,6 +725,16 @@ fn parse_size(pair: &pest::iterators::Pair<Rule>) -> Size {
     }
 }
 
+fn parse_incdec_amount(pair: pest::iterators::Pair<Rule>) -> AstNode {
+    match pair.as_str() {
+        "1" => AstNode::Immediate8(0),
+        "2" => AstNode::Immediate8(1),
+        "4" => AstNode::Immediate8(2),
+        "8" => AstNode::Immediate8(3),
+        _ => panic!("Unsupported increment/decrement: {}", pair.as_str()),
+    }
+}
+
 fn parse_condition(pair: &pest::iterators::Pair<Rule>) -> Condition {
     match pair.as_str() {
         "ifz" => Condition::Zero,
@@ -753,6 +775,21 @@ fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
                     let operand = inner_pair.next().unwrap();
                     let operand_ast = build_ast_from_expression(operand);
                     parse_instruction_one(instruction_conditional_pair, operand_ast, size, condition)
+                }
+                Rule::instruction_incdec => {
+                    if inner_pair.peek().unwrap().as_rule() == Rule::size {
+                        size = parse_size(&inner_pair.next().unwrap());
+                    }
+                    *CURRENT_SIZE.lock().unwrap() = size;
+                    let lhs = inner_pair.next().unwrap();
+                    let lhs_ast = build_ast_from_expression(lhs);
+                    let rhs_ast = if inner_pair.peek().is_some() {
+                        let rhs = inner_pair.next().unwrap();
+                        parse_incdec_amount(rhs)
+                    } else {
+                        AstNode::Immediate8(0)
+                    };
+                    parse_instruction_incdec(instruction_conditional_pair, lhs_ast, rhs_ast, size, condition)
                 }
                 Rule::instruction_two => {
                     if inner_pair.peek().unwrap().as_rule() == Rule::size {
@@ -878,8 +915,6 @@ fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode
         size: size,
         condition: condition,
         instruction: match pair.as_str() {
-            "inc"   => InstructionOne::Inc,
-            "dec"   => InstructionOne::Dec,
             "not"   => InstructionOne::Not,
             "jmp"   => InstructionOne::Jmp,
             "call"  => InstructionOne::Call,
@@ -924,6 +959,21 @@ fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode
         operand: Box::new(operand),
     }
 }
+
+fn parse_instruction_incdec(pair: pest::iterators::Pair<Rule>, lhs: AstNode, rhs: AstNode, size: Size, condition: Condition) -> AstNode {
+    AstNode::OperationIncDec {
+        size: size,
+        condition: condition,
+        instruction: match pair.as_str() {
+            "inc"  => InstructionIncDec::Inc,
+            "dec"  => InstructionIncDec::Dec,
+            _ => panic!("Unsupported conditional instruction (two): {}", pair.as_str()),
+        },
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    }
+}
+
 
 fn parse_instruction_two(pair: pest::iterators::Pair<Rule>, mut lhs: AstNode, mut rhs: AstNode, size: Size, condition: Condition) -> AstNode {
     AstNode::OperationTwo {
@@ -1055,8 +1105,6 @@ fn instruction_to_byte(node: &AstNode) -> u8 {
         }
         AstNode::OperationOne {size, instruction, ..} => {
             match instruction {
-                InstructionOne::Inc   => 0x11 | size_to_byte(size),
-                InstructionOne::Dec   => 0x31 | size_to_byte(size),
                 InstructionOne::Not   => 0x33 | size_to_byte(size),
                 InstructionOne::Jmp   => 0x08 | size_to_byte(size),
                 InstructionOne::Call  => 0x18 | size_to_byte(size),
@@ -1069,6 +1117,12 @@ fn instruction_to_byte(node: &AstNode) -> u8 {
                 InstructionOne::Int   => 0x2C | size_to_byte(size),
                 InstructionOne::Tlb   => 0x2D | size_to_byte(size),
                 InstructionOne::Flp   => 0x3D | size_to_byte(size),
+            }
+        }
+        AstNode::OperationIncDec {size, instruction, ..} => {
+            match instruction {
+                InstructionIncDec::Inc   => 0x11 | size_to_byte(size),
+                InstructionIncDec::Dec   => 0x31 | size_to_byte(size),
             }
         }
         AstNode::OperationTwo {size, instruction, ..} => {
@@ -1128,6 +1182,15 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
                 _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
             }
         }
+        AstNode::OperationIncDec {lhs, ..} => {
+            match lhs.as_ref() {
+                AstNode::Register(_) => 0x00,
+                AstNode::RegisterPointer(_) => 0x01,
+                AstNode::Immediate8(_) | AstNode::Immediate16(_) | AstNode::Immediate32(_) | AstNode::LabelOperand {..} => 0x02,
+                AstNode::ImmediatePointer(_) | AstNode::LabelOperandPointer {..} => 0x03,
+                _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
+            }
+        }
         AstNode::OperationTwo {rhs, ..} => {
             match rhs.as_ref() {
                 AstNode::Register(_) => 0x00,
@@ -1142,6 +1205,12 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
     let destination: u8 = match node {
         AstNode::OperationZero {..} => 0x00,
         AstNode::OperationOne {..} => 0x00,
+        AstNode::OperationIncDec { rhs, ..} => {
+            match rhs.as_ref() {
+                AstNode::Immediate8(n) => *n << 2,
+                _ => panic!(""),
+            }
+        }
         AstNode::OperationTwo {lhs, ..} => {
             match lhs.as_ref() {
                 AstNode::Register(_) => 0x00,
@@ -1156,6 +1225,7 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
     let condition: u8 = match node {
         AstNode::OperationZero {condition, ..} => condition_to_bits(condition),
         AstNode::OperationOne {condition, ..} => condition_to_bits(condition),
+        AstNode::OperationIncDec {condition, ..} => condition_to_bits(condition),
         AstNode::OperationTwo {condition, ..} => condition_to_bits(condition),
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
     };
@@ -1219,6 +1289,9 @@ fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction) 
             AstNode::OperationOne {operand, ..} =>
                 operand_to_immediate_value(instruction, operand.as_ref()),
 
+            AstNode::OperationIncDec {lhs, ..} =>
+                operand_to_immediate_value(instruction, lhs.as_ref()),
+
             AstNode::OperationTwo {rhs, ..} =>
                 operand_to_immediate_value(instruction, rhs.as_ref()),
 
@@ -1229,6 +1302,7 @@ fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction) 
     match node {
         AstNode::OperationZero {..} => {}
         AstNode::OperationOne  {..} => {}
+        AstNode::OperationIncDec  {..} => {}
 
         AstNode::OperationTwo  {lhs, ..} =>
             operand_to_immediate_value(instruction, lhs.as_ref()),
