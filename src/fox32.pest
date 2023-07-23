@@ -2,7 +2,7 @@ WHITESPACE = _{ " " | "\t" | "\n" | "\r" | "\x0B" | "\x0C" | "\xA0" | SPACE_SEPA
 COMMENT = _{ ";" ~ (!"\n" ~ ANY)* }
 
 assembly = {
-    SOI ~ (origin | include_bin_optional | include_bin | data | constant | label | instruction)* ~ EOI
+    SOI ~ (origin | include_bin_optional | include_bin | data | constant | label | instruction | opt)* ~ EOI
 }
 
 origin = {
@@ -11,6 +11,13 @@ origin = {
 }
 origin_padding = { "org.pad" ~ operand_value }
 origin_no_padding = { "org" ~ operand_value }
+
+opton = { "opton" }
+optoff = { "optoff" }
+opt = {
+    opton  |
+    optoff
+}
 
 include_bin = { "#include_bin" ~ immediate_str }
 include_bin_optional = { "#include_bin_optional" ~ immediate_str }
@@ -48,7 +55,9 @@ operand = {
     operand_value
 }
 operand_value_ptr = {
-    operand_value
+    register ~ "+" ~ operand_value |
+    operand_value                  
+    
 }
 operand_value = {
     register       |

@@ -247,32 +247,41 @@ enum LabelKind {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+struct OperationZero {
+    size: Size,
+    condition: Condition,
+    instruction: InstructionZero,
+}
+#[derive(PartialEq, Debug, Clone)]
+struct OperationOne {
+    size: Size,
+    condition: Condition,
+    instruction: InstructionOne,
+    operand: Box<AstNode>,
+}
+#[derive(PartialEq, Debug, Clone)]
+struct OperationIncDec {
+    size: Size,
+    condition: Condition,
+    instruction: InstructionIncDec,
+    lhs: Box<AstNode>,
+    rhs: Box<AstNode>,
+}
+#[derive(PartialEq, Debug, Clone)]
+struct OperationTwo {
+    size: Size,
+    condition: Condition,
+    instruction: InstructionTwo,
+    lhs: Box<AstNode>,
+    rhs: Box<AstNode>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
 enum AstNode {
-    OperationZero {
-        size: Size,
-        condition: Condition,
-        instruction: InstructionZero,
-    },
-    OperationOne {
-        size: Size,
-        condition: Condition,
-        instruction: InstructionOne,
-        operand: Box<AstNode>,
-    },
-    OperationIncDec {
-        size: Size,
-        condition: Condition,
-        instruction: InstructionIncDec,
-        lhs: Box<AstNode>,
-        rhs: Box<AstNode>,
-    },
-    OperationTwo {
-        size: Size,
-        condition: Condition,
-        instruction: InstructionTwo,
-        lhs: Box<AstNode>,
-        rhs: Box<AstNode>,
-    },
+    OperationZero(OperationZero) ,
+    OperationOne (OperationOne),
+    OperationIncDec(OperationIncDec) ,
+    OperationTwo (OperationTwo),
 
     Immediate8(u8),
     Immediate16(u16),
@@ -280,6 +289,7 @@ enum AstNode {
     Register(u8),
     ImmediatePointer(u32),
     RegisterPointer(u8),
+    RegisterPointerOffset(u8, u8),
 
     Constant {
         name: String,
@@ -314,6 +324,7 @@ enum AstNode {
 
     Origin(u32),
     OriginPadded(u32),
+    Optimize(bool)
 }
 
 fn format_address_table(m: &HashMap<String, (u32, bool)>) -> String {
@@ -364,7 +375,7 @@ fn main() {
     }
 
     println!("Parsing file...");
-    let ast = match parse(&input_file) {
+    let mut ast = match parse(&input_file) {
         Ok(x) => x,
         Err(x) => {
             println!("{:#?}", x);
@@ -376,7 +387,9 @@ fn main() {
     let mut current_address: u32 = 0;
 
     println!("Assembling...");
-    for node in ast {
+    let mut optimize = false;
+    for mut node in ast {
+        node = optimize_node(node, &mut optimize);
         if let AstNode::LabelDefine {name, ..} = node {
             let mut address_table = LABEL_ADDRESSES.lock().unwrap();
             if let Some(_) = address_table.get(&name) {
@@ -404,6 +417,8 @@ fn main() {
         } else if let AstNode::IncludedBinary(binary_vec) = node {
             current_address += binary_vec.len() as u32;
             instructions.push(binary_vec.into());
+        } else if let AstNode::Optimize(_) = node {
+
         } else {
             let instruction = assemble_node(node);
             instruction.set_address(current_address);
@@ -563,7 +578,6 @@ fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
 
 fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("{:#?}\n\n", pair); // debug
-
     let pair_rule = pair.as_rule();
     let mut inner_pair = pair.into_inner();
     *CURRENT_CONDITION.lock().unwrap() = Condition::Always;
@@ -586,6 +600,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
         Rule::constant => parse_constant(inner_pair),
         Rule::label => parse_label(inner_pair.next().unwrap(), inner_pair.next()),
         Rule::data => parse_data(inner_pair.next().unwrap()),
+        Rule::opt => parse_opt(inner_pair.next().unwrap()),
         Rule::origin => parse_origin(inner_pair.next().unwrap()),
         Rule::include_bin => include_binary_file(inner_pair.next().unwrap(), false),
         Rule::include_bin_optional => include_binary_file(inner_pair.next().unwrap(), true),
@@ -686,7 +701,13 @@ fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
         _ => panic!("Unsupported data: {}", pair.as_str()),
     }
 }
-
+fn parse_opt(rule: pest::iterators::Pair<Rule>) -> AstNode {
+    match rule.as_str() {
+        "opton"=>AstNode::Optimize(true),
+        "optoff"=>AstNode::Optimize(false),
+        _ => panic!("Unknown optimize flag {}", rule.as_str())
+    }
+}
 fn parse_origin(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("{:#?}", pair);
     match pair.as_rule() {
@@ -825,45 +846,67 @@ fn immediate_to_astnode(immediate: u32, size: Size, is_pointer: bool) -> AstNode
     }
 }
 
+fn parse_immediate(pair: pest::iterators::Pair<Rule>) -> u32 {
+    match pair.as_rule() {
+        Rule::immediate_bin => {
+            let body_bin_str = pair.into_inner().next().unwrap().as_str();
+        u32::from_str_radix(&remove_underscores(body_bin_str), 2).unwrap()
+        }
+        Rule::immediate_hex => {
+            let body_hex_str = pair.into_inner().next().unwrap().as_str();
+            u32::from_str_radix(&remove_underscores(body_hex_str), 16).unwrap()
+        }
+        Rule::immediate_dec => {
+            let dec_str = pair.as_span().as_str();
+            remove_underscores(dec_str).parse::<u32>().unwrap()
+        }
+        Rule::immediate_char => {
+            let body_char_str = pair.into_inner().next().unwrap().as_str();
+            body_char_str.chars().nth(0).unwrap() as u8 as u32
+        }
+        _=> {
+            panic!()
+        }
+    }
+}
+
+fn parse_register(pair: pest::iterators::Pair<Rule>) -> u8 {
+    let register_num_pair = pair.into_inner().next().unwrap();
+    let register_num = if register_num_pair.as_str() == "sp" { 32 }
+    else if register_num_pair.as_str() == "esp" { 33 }
+    else if register_num_pair.as_str() == "fp" { 34 }
+    else { register_num_pair.as_str().parse::<u8>().unwrap() };
+    if register_num > 34 { panic!("register number out of range"); }
+    register_num
+}
+
 fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> AstNode {
     //println!("parse_operand: {:#?}", pair); // debug
+    // dbg!(&pair);
     let size = *CURRENT_SIZE.lock().unwrap();
+    let pointer_offset = 
     if is_pointer {
         // skip past the operand_value_ptr pair and look at its operand_value rule
-        pair = pair.into_inner().next().unwrap();
-    }
+        let mut pairs = pair.into_inner();
+        pair = pairs.next().unwrap();
+        pairs.next()
+        // pair = pair.into_inner().next().unwrap();
+    }else {
+        None
+    };
     match pair.as_rule() {
         Rule::operand_value => {
             let mut inner_pair = pair.into_inner();
             let operand_value_pair = inner_pair.next().unwrap();
             match operand_value_pair.as_rule() {
-                Rule::immediate_bin => {
-                    let body_bin_str = operand_value_pair.into_inner().next().unwrap().as_str();
-                    let immediate = u32::from_str_radix(&remove_underscores(body_bin_str), 2).unwrap();
-                    immediate_to_astnode(immediate, size, is_pointer)
-                }
+                Rule::immediate_bin|
+                Rule::immediate_char|
+                Rule::immediate_dec|
                 Rule::immediate_hex => {
-                    let body_hex_str = operand_value_pair.into_inner().next().unwrap().as_str();
-                    let immediate = u32::from_str_radix(&remove_underscores(body_hex_str), 16).unwrap();
-                    immediate_to_astnode(immediate, size, is_pointer)
-                }
-                Rule::immediate_dec => {
-                    let dec_str = operand_value_pair.as_span().as_str();
-                    let immediate = remove_underscores(dec_str).parse::<u32>().unwrap();
-                    immediate_to_astnode(immediate, size, is_pointer)
-                }
-                Rule::immediate_char => {
-                    let body_char_str = operand_value_pair.into_inner().next().unwrap().as_str();
-                    let immediate = body_char_str.chars().nth(0).unwrap() as u8 as u32;
-                    immediate_to_astnode(immediate, size, is_pointer)
+                    immediate_to_astnode(parse_immediate(operand_value_pair), size, is_pointer)
                 }
                 Rule::register => {
-                    let register_num_pair = operand_value_pair.into_inner().next().unwrap();
-                    let register_num = if register_num_pair.as_str() == "sp" { 32 }
-                    else if register_num_pair.as_str() == "esp" { 33 }
-                    else if register_num_pair.as_str() == "fp" { 34 }
-                    else { register_num_pair.as_str().parse::<u8>().unwrap() };
-                    if register_num > 34 { panic!("register number out of range"); }
+                    let register_num = parse_register(operand_value_pair);
                     if is_pointer {
                         AstNode::RegisterPointer(register_num)
                     } else {
@@ -887,12 +930,25 @@ fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> Ast
                 _ => todo!(),
             }
         }
+        Rule::register => {
+            let register_num = parse_register(pair);
+            let offset = if let Some(offset_pair) = pointer_offset {
+                parse_immediate(offset_pair.into_inner().next().unwrap())
+            } else {
+                0
+            };
+            if offset == 0 {
+                AstNode::RegisterPointer(register_num)
+            } else {
+                AstNode::RegisterPointerOffset(register_num, offset as u8)
+            }
+        }
         _ => panic!(),
     }
 }
 
 fn parse_instruction_zero(pair: pest::iterators::Pair<Rule>, size: Size, condition: Condition) -> AstNode {
-    AstNode::OperationZero {
+    AstNode::OperationZero ( OperationZero {
         size: size,
         condition: condition,
         instruction: match pair.as_str() {
@@ -906,12 +962,12 @@ fn parse_instruction_zero(pair: pest::iterators::Pair<Rule>, size: Size, conditi
             "mse"  => InstructionZero::Mse,
             "mcl"  => InstructionZero::Mcl,
             _ => panic!("Unsupported conditional instruction (zero): {}", pair.as_str()),
-        },
-    }
+        }
+    })
 }
 
 fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode, size: Size, condition: Condition) -> AstNode {
-    AstNode::OperationOne {
+    AstNode::OperationOne ( OperationOne {
         size: size,
         condition: condition,
         instruction: match pair.as_str() {
@@ -956,12 +1012,12 @@ fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode
             "flp"   => InstructionOne::Flp,
             _ => panic!("Unsupported conditional instruction (one): {}", pair.as_str()),
         },
-        operand: Box::new(operand),
-    }
+        operand: Box::new(operand)
+    })
 }
 
 fn parse_instruction_incdec(pair: pest::iterators::Pair<Rule>, lhs: AstNode, rhs: AstNode, size: Size, condition: Condition) -> AstNode {
-    AstNode::OperationIncDec {
+    AstNode::OperationIncDec ( OperationIncDec {
         size: size,
         condition: condition,
         instruction: match pair.as_str() {
@@ -971,12 +1027,25 @@ fn parse_instruction_incdec(pair: pest::iterators::Pair<Rule>, lhs: AstNode, rhs
         },
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
-    }
+    })
 }
 
 
 fn parse_instruction_two(pair: pest::iterators::Pair<Rule>, mut lhs: AstNode, mut rhs: AstNode, size: Size, condition: Condition) -> AstNode {
-    AstNode::OperationTwo {
+    match pair.as_str() {
+        "sla"  |
+        "sra"  |
+        "srl"  |
+        "rol"  |
+        "ror"  |
+        "bse"  |
+        "bcl"  |
+        "bts"  => if let Some(value) = node_value(&rhs) {
+            rhs = AstNode::Immediate8(value as u8);
+        }
+        _=>()
+    }
+    AstNode::OperationTwo ( OperationTwo {
         size: size,
         condition: condition,
         instruction: match pair.as_str() {
@@ -1025,7 +1094,7 @@ fn parse_instruction_two(pair: pest::iterators::Pair<Rule>, mut lhs: AstNode, mu
         },
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
-    }
+    })
 }
 
 fn assemble_node(node: AstNode) -> AssembledInstruction {
@@ -1060,12 +1129,14 @@ fn assemble_node(node: AstNode) -> AssembledInstruction {
 
     let mut instruction_data: Vec<u8> = Vec::new();
 
-    instruction_data.push(condition_source_destination_to_byte(&node));
+    let condition_source_destination = condition_source_destination_to_byte(&node);
+    instruction_data.push(condition_source_destination);
     instruction_data.push(instruction_to_byte(&node));
 
     let mut instruction: AssembledInstruction = instruction_data.into();
 
-    node_to_immediate_values(&node, &mut instruction);
+    //0x80 bit determines if we need to write the pointer offsets or not
+    node_to_immediate_values(&node, &mut instruction, condition_source_destination & 0x80 != 0);
 
     instruction
 }
@@ -1090,7 +1161,7 @@ fn size_to_byte(size: Size) -> u8 {
 
 fn instruction_to_byte(node: &AstNode) -> u8 {
     match *node {
-        AstNode::OperationZero {size, instruction, ..} => {
+        AstNode::OperationZero (OperationZero{size, instruction, ..}) => {
             match instruction {
                 InstructionZero::Nop  => 0x00 | size_to_byte(size),
                 InstructionZero::Halt => 0x10 | size_to_byte(size),
@@ -1103,7 +1174,7 @@ fn instruction_to_byte(node: &AstNode) -> u8 {
                 InstructionZero::Mcl  => 0x1D | size_to_byte(size),
             }
         }
-        AstNode::OperationOne {size, instruction, ..} => {
+        AstNode::OperationOne (OperationOne{size, instruction, ..}) => {
             match instruction {
                 InstructionOne::Not   => 0x33 | size_to_byte(size),
                 InstructionOne::Jmp   => 0x08 | size_to_byte(size),
@@ -1119,13 +1190,13 @@ fn instruction_to_byte(node: &AstNode) -> u8 {
                 InstructionOne::Flp   => 0x3D | size_to_byte(size),
             }
         }
-        AstNode::OperationIncDec {size, instruction, ..} => {
+        AstNode::OperationIncDec (OperationIncDec{size, instruction, ..}) => {
             match instruction {
                 InstructionIncDec::Inc   => 0x11 | size_to_byte(size),
                 InstructionIncDec::Dec   => 0x31 | size_to_byte(size),
             }
         }
-        AstNode::OperationTwo {size, instruction, ..} => {
+        AstNode::OperationTwo (OperationTwo{size, instruction, ..}) => {
             match instruction {
                 InstructionTwo::Add  => 0x01 | size_to_byte(size),
                 InstructionTwo::Sub  => 0x21 | size_to_byte(size),
@@ -1172,29 +1243,32 @@ fn condition_to_bits(condition: &Condition) -> u8 {
 
 fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
     let source: u8 = match node {
-        AstNode::OperationZero {..} => 0x00,
-        AstNode::OperationOne {operand, ..} => {
+        AstNode::OperationZero (_) => 0x00,
+        AstNode::OperationOne (OperationOne{operand, ..}) => {
             match operand.as_ref() {
                 AstNode::Register(_) => 0x00,
                 AstNode::RegisterPointer(_) => 0x01,
+                AstNode::RegisterPointerOffset(_, _) => 0x81,
                 AstNode::Immediate8(_) | AstNode::Immediate16(_) | AstNode::Immediate32(_) | AstNode::LabelOperand {..} => 0x02,
                 AstNode::ImmediatePointer(_) | AstNode::LabelOperandPointer {..} => 0x03,
                 _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
             }
         }
-        AstNode::OperationIncDec {lhs, ..} => {
+        AstNode::OperationIncDec (OperationIncDec{lhs, ..}) => {
             match lhs.as_ref() {
                 AstNode::Register(_) => 0x00,
                 AstNode::RegisterPointer(_) => 0x01,
+                AstNode::RegisterPointerOffset(_, _) => 0x81,
                 AstNode::Immediate8(_) | AstNode::Immediate16(_) | AstNode::Immediate32(_) | AstNode::LabelOperand {..} => 0x02,
                 AstNode::ImmediatePointer(_) | AstNode::LabelOperandPointer {..} => 0x03,
                 _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
             }
         }
-        AstNode::OperationTwo {rhs, ..} => {
+        AstNode::OperationTwo (OperationTwo{rhs, ..}) => {
             match rhs.as_ref() {
                 AstNode::Register(_) => 0x00,
                 AstNode::RegisterPointer(_) => 0x01,
+                AstNode::RegisterPointerOffset(_, _) => 0x81,
                 AstNode::Immediate8(_) | AstNode::Immediate16(_) | AstNode::Immediate32(_) | AstNode::LabelOperand {..} => 0x02,
                 AstNode::ImmediatePointer(_) | AstNode::LabelOperandPointer {..} => 0x03,
                 _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
@@ -1203,18 +1277,19 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
     };
     let destination: u8 = match node {
-        AstNode::OperationZero {..} => 0x00,
-        AstNode::OperationOne {..} => 0x00,
-        AstNode::OperationIncDec { rhs, ..} => {
+        AstNode::OperationZero(_) => 0x00,
+        AstNode::OperationOne (_)=> 0x00,
+        AstNode::OperationIncDec (OperationIncDec{ rhs, ..}) => {
             match rhs.as_ref() {
                 AstNode::Immediate8(n) => *n << 2,
                 _ => panic!(""),
             }
         }
-        AstNode::OperationTwo {lhs, ..} => {
+        AstNode::OperationTwo (OperationTwo{lhs, ..}) => {
             match lhs.as_ref() {
                 AstNode::Register(_) => 0x00,
                 AstNode::RegisterPointer(_) => 0x04,
+                AstNode::RegisterPointerOffset(_, _) => 0x84,
                 AstNode::Immediate8(_) | AstNode::Immediate16(_) | AstNode::Immediate32(_) | AstNode::LabelOperand {..} => 0x08,
                 AstNode::ImmediatePointer(_) | AstNode::LabelOperandPointer {..} => 0x0C,
                 _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
@@ -1223,10 +1298,10 @@ fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
     };
     let condition: u8 = match node {
-        AstNode::OperationZero {condition, ..} => condition_to_bits(condition),
-        AstNode::OperationOne {condition, ..} => condition_to_bits(condition),
-        AstNode::OperationIncDec {condition, ..} => condition_to_bits(condition),
-        AstNode::OperationTwo {condition, ..} => condition_to_bits(condition),
+        AstNode::OperationZero (OperationZero{condition, ..}) => condition_to_bits(condition),
+        AstNode::OperationOne (OperationOne{condition, ..}) => condition_to_bits(condition),
+        AstNode::OperationIncDec (OperationIncDec{condition, ..}) => condition_to_bits(condition),
+        AstNode::OperationTwo (OperationTwo{condition, ..}) => condition_to_bits(condition),
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
     };
     condition | source | destination
@@ -1257,11 +1332,23 @@ fn generate_backpatch_immediate(name: &String, size: Size, instruction: &Assembl
     targets.push(BackpatchTarget::new(instruction, index, size, is_relative));
 }
 
-fn operand_to_immediate_value(instruction: &AssembledInstruction, node: &AstNode){
+
+fn operand_to_immediate_value(instruction: &AssembledInstruction, node: &AstNode, pointer_offset: bool){
     let mut vec = instruction.borrow_mut();
     match *node {
         AstNode::Register       (register) => vec.push(register),
-        AstNode::RegisterPointer(register) => vec.push(register),
+        AstNode::RegisterPointer(register) => {
+            vec.push(register);
+            if pointer_offset {
+                vec.push(0);
+            }
+        }
+        AstNode::RegisterPointerOffset(register, offset) => {
+            vec.push(register);
+            if pointer_offset {
+                vec.push(offset);
+            }
+        }
 
         AstNode::Immediate8      (immediate) => vec.push(immediate),
         AstNode::Immediate16     (immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
@@ -1279,21 +1366,22 @@ fn operand_to_immediate_value(instruction: &AssembledInstruction, node: &AstNode
 
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
     }
+    
 }
 
-fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction) {
+fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction, pointer_offset: bool) {
     {
         match node {
             AstNode::OperationZero {..} => {}
 
-            AstNode::OperationOne {operand, ..} =>
-                operand_to_immediate_value(instruction, operand.as_ref()),
+            AstNode::OperationOne (OperationOne{operand, ..}) =>
+                operand_to_immediate_value(instruction, operand.as_ref(), pointer_offset),
 
-            AstNode::OperationIncDec {lhs, ..} =>
-                operand_to_immediate_value(instruction, lhs.as_ref()),
+            AstNode::OperationIncDec (OperationIncDec{lhs, ..}) =>
+                operand_to_immediate_value(instruction, lhs.as_ref(), pointer_offset),
 
-            AstNode::OperationTwo {rhs, ..} =>
-                operand_to_immediate_value(instruction, rhs.as_ref()),
+            AstNode::OperationTwo (OperationTwo{rhs, ..}) =>
+                operand_to_immediate_value(instruction, rhs.as_ref(), pointer_offset),
 
             _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
         }
@@ -1304,9 +1392,116 @@ fn node_to_immediate_values(node: &AstNode, instruction: &AssembledInstruction) 
         AstNode::OperationOne  {..} => {}
         AstNode::OperationIncDec  {..} => {}
 
-        AstNode::OperationTwo  {lhs, ..} =>
-            operand_to_immediate_value(instruction, lhs.as_ref()),
+        AstNode::OperationTwo  (OperationTwo{lhs, ..}) =>
+            operand_to_immediate_value(instruction, lhs.as_ref(), pointer_offset),
 
         _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
     };
+}
+
+
+fn node_value(node: &AstNode) -> Option<u32> {
+    match *node {
+        AstNode::Immediate16(n) => Some(n as u32),
+        AstNode::Immediate32(n) => Some(n as u32),
+        AstNode::Immediate8(n) => Some(n as u32),
+        _ => None
+    }
+}
+fn optimize_node(node: AstNode, enabled: &mut bool) -> AstNode {
+    if let AstNode::Optimize(value) = node {
+        *enabled = value;
+    }
+    if *enabled {
+        match node {
+            AstNode::OperationTwo(mut n) => {
+                let v = node_value(&n.rhs);
+                if let Some(v) = v {
+                match n.instruction {
+                    InstructionTwo::Add => {
+                            match v {
+                                1 => return AstNode::OperationIncDec(OperationIncDec { size: n.size, condition: n.condition, instruction: InstructionIncDec::Inc, lhs: n.lhs, rhs: Box::new(AstNode::Immediate8(0)) }),
+                                2 => return AstNode::OperationIncDec(OperationIncDec { size: n.size, condition: n.condition, instruction: InstructionIncDec::Inc, lhs: n.lhs, rhs: Box::new(AstNode::Immediate8(1)) }),
+                                4 => return AstNode::OperationIncDec(OperationIncDec { size: n.size, condition: n.condition, instruction: InstructionIncDec::Inc, lhs: n.lhs, rhs: Box::new(AstNode::Immediate8(2)) }),
+                                8 => return AstNode::OperationIncDec(OperationIncDec { size: n.size, condition: n.condition, instruction: InstructionIncDec::Inc, lhs: n.lhs, rhs: Box::new(AstNode::Immediate8(3)) }),
+                                _ => ()
+                            }
+                        
+                    },
+                    InstructionTwo::Sub => {
+                            match v {
+                                1 => return AstNode::OperationIncDec(OperationIncDec { size: n.size, condition: n.condition, instruction: InstructionIncDec::Dec, lhs: n.lhs, rhs: Box::new(AstNode::Immediate8(0)) }),
+                                2 => return AstNode::OperationIncDec(OperationIncDec { size: n.size, condition: n.condition, instruction: InstructionIncDec::Dec, lhs: n.lhs, rhs: Box::new(AstNode::Immediate8(1)) }),
+                                4 => return AstNode::OperationIncDec(OperationIncDec { size: n.size, condition: n.condition, instruction: InstructionIncDec::Dec, lhs: n.lhs, rhs: Box::new(AstNode::Immediate8(2)) }),
+                                8 => return AstNode::OperationIncDec(OperationIncDec { size: n.size, condition: n.condition, instruction: InstructionIncDec::Dec, lhs: n.lhs, rhs: Box::new(AstNode::Immediate8(3)) }),
+                                _ => ()
+                            }
+                        
+                    },
+                    InstructionTwo::Mov => {
+                        if let Size::Word = n.size {
+                                if let AstNode::Register(_) = *n.lhs {
+                                    if v <= 0xff {
+                                        n.size = Size::Byte;
+                                        n.instruction = InstructionTwo::Movz;
+                                        n.rhs = Box::new(AstNode::Immediate8(v as u8));
+                                    } 
+                                
+                                    else if v <= 0xffff {
+                                        n.size = Size::Half;
+                                        n.instruction = InstructionTwo::Movz;
+                                        n.rhs = Box::new(AstNode::Immediate16(v as u16));
+                                    }
+                                }
+                            
+                        }
+                    },
+                    InstructionTwo::Mul => {
+                        if let Size::Word = n.size {
+                                if v.is_power_of_two() {
+                                    n.instruction = InstructionTwo::Sla;
+                                    n.rhs = Box::new(AstNode::Immediate8(v.trailing_zeros() as u8));
+                                }
+                            }
+                        
+                    },
+                    InstructionTwo::Idiv => {
+                        if let Size::Word = n.size {
+                                if v.is_power_of_two() {
+                                    n.instruction = InstructionTwo::Sra;
+                                    n.rhs = Box::new(AstNode::Immediate8(v.trailing_zeros() as u8));
+                                }
+                            
+                        }
+                    },
+                    InstructionTwo::Div => {
+                        if let Size::Word = n.size {
+                                if v.is_power_of_two() {
+                                    n.instruction = InstructionTwo::Srl;
+                                    n.rhs = Box::new(AstNode::Immediate8(v.trailing_zeros() as u8));
+                                }
+                            
+                        }
+                    },
+                    // InstructionTwo::Sla 
+                    // | InstructionTwo::Srl | InstructionTwo::Sra 
+                    // | InstructionTwo::Bcl | InstructionTwo::Bse 
+                    // | InstructionTwo::Bts 
+                    // | InstructionTwo::Ror | InstructionTwo::Rol 
+                    // => {
+                    //     n.rhs = Box::new(AstNode::Immediate8(v as u8));
+                        
+                    // }
+                    
+                    _ => ()
+                }
+                }
+                
+                AstNode::OperationTwo(n)
+            }
+            _=> node
+        }
+    } else {
+        node
+    }
 }
