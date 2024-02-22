@@ -692,6 +692,8 @@ fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
                 let ast = parse_operand(pair.into_inner().nth(1).unwrap(), false);
                 if let AstNode::Immediate32(word) = ast {
                     word
+                } else if let AstNode::Constant {name: _, address} = ast {
+                    address
                 } else {
                     unreachable!()
                 }
