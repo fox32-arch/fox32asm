@@ -276,6 +276,13 @@ struct OperationTwo {
     rhs: Box<AstNode>,
 }
 
+// This might be a terrible idea
+#[derive(PartialEq, Debug, Clone)]
+enum SizeOrLabelName {
+    Size(u32),
+    Label(String),
+}
+
 #[derive(PartialEq, Debug, Clone)]
 enum AstNode {
     OperationZero(OperationZero) ,
@@ -317,7 +324,7 @@ enum AstNode {
     DataStrZero(String),
     DataFill {
         value: u8,
-        size: u32,
+        size: SizeOrLabelName,
     },
 
     IncludedBinary(Vec<u8>),
@@ -412,6 +419,13 @@ fn main() {
             current_address = origin_address;
             instructions.push(vec![0; difference].into());
         } else if let AstNode::DataFill {value, size} = node {
+            let size = match size {
+                SizeOrLabelName::Size(size) => size,
+                SizeOrLabelName::Label(name) => {
+                    let address_table = LABEL_ADDRESSES.lock().unwrap();
+                    address_table.get(&name).expect(&format!("Label not found: {}", name)).0
+                },
+            };
             current_address += size;
             instructions.push(vec![value; size as usize].into());
         } else if let AstNode::IncludedBinary(binary_vec) = node {
@@ -430,6 +444,7 @@ fn main() {
     println!("Performing label backpatching...");
     let table = LABEL_TARGETS.lock().unwrap();
     let address_table = LABEL_ADDRESSES.lock().unwrap();
+    dbg!(&address_table);
 
     let address_file = format_address_table(&address_table);
     println!("{}", address_file);
@@ -691,10 +706,11 @@ fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
             let size = {
                 let ast = parse_operand(pair.into_inner().nth(1).unwrap(), false);
                 if let AstNode::Immediate32(word) = ast {
-                    word
-                } else if let AstNode::Constant {name: _, address} = ast {
-                    address
+                    SizeOrLabelName::Size(word)
+                } else if let AstNode::LabelOperand {name, ..} = ast {
+                    SizeOrLabelName::Label(name)
                 } else {
+                    dbg!(ast);
                     unreachable!()
                 }
             };
