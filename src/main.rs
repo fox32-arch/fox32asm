@@ -276,7 +276,8 @@ struct OperationTwo {
     rhs: Box<AstNode>,
 }
 
-// This might be a terrible idea
+// Used by data.fill to store either a known size or the name of a constant
+// that defines the size
 #[derive(PartialEq, Debug, Clone)]
 enum SizeOrLabelName {
     Size(u32),
@@ -444,7 +445,6 @@ fn main() {
     println!("Performing label backpatching...");
     let table = LABEL_TARGETS.lock().unwrap();
     let address_table = LABEL_ADDRESSES.lock().unwrap();
-    dbg!(&address_table);
 
     let address_file = format_address_table(&address_table);
     println!("{}", address_file);
