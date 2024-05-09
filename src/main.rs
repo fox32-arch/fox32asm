@@ -383,7 +383,7 @@ fn main() {
     }
 
     println!("Parsing file...");
-    let mut ast = match parse(&input_file) {
+    let ast = match parse(&input_file) {
         Ok(x) => x,
         Err(x) => {
             println!("{:#?}", x);
