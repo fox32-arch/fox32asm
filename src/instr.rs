@@ -1,6 +1,14 @@
-use std::{cell::{Cell, RefCell}, ops::Deref, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    ops::Deref,
+    rc::Rc,
+};
 
-use crate::{node_value, parser::{AstNode, Rule}, util::size_to_byte};
+use crate::{
+    node_value,
+    parser::{AstNode, Rule},
+    util::size_to_byte,
+};
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum InstructionZero {
@@ -129,7 +137,7 @@ pub struct OperationTwo {
 
 #[derive(Debug, Clone, Default)]
 pub struct AssembledInstruction {
-     value: Rc<RefCell<Vec<u8>>>,
+    value: Rc<RefCell<Vec<u8>>>,
     address: Rc<Cell<u32>>,
 }
 
@@ -181,223 +189,292 @@ impl Deref for AssembledInstruction {
 unsafe impl Send for AssembledInstruction {}
 unsafe impl Sync for AssembledInstruction {}
 
-pub fn parse_instruction_zero(pair: pest::iterators::Pair<Rule>, size: Size, condition: Condition) -> AstNode {
-    AstNode::OperationZero ( OperationZero {
+pub fn parse_instruction_zero(
+    pair: pest::iterators::Pair<Rule>,
+    size: Size,
+    condition: Condition,
+) -> AstNode {
+    AstNode::OperationZero(OperationZero {
         size: size,
         condition: condition,
         instruction: match pair.as_str() {
-            "nop"  => InstructionZero::Nop,
+            "nop" => InstructionZero::Nop,
             "halt" => InstructionZero::Halt,
-            "brk"  => InstructionZero::Brk,
-            "ret"  => InstructionZero::Ret,
+            "brk" => InstructionZero::Brk,
+            "ret" => InstructionZero::Ret,
             "reti" => InstructionZero::Reti,
-            "ise"  => InstructionZero::Ise,
-            "icl"  => InstructionZero::Icl,
-            "mse"  => InstructionZero::Mse,
-            "mcl"  => InstructionZero::Mcl,
-            _ => panic!("Unsupported conditional instruction (zero): {}", pair.as_str()),
-        }
+            "ise" => InstructionZero::Ise,
+            "icl" => InstructionZero::Icl,
+            "mse" => InstructionZero::Mse,
+            "mcl" => InstructionZero::Mcl,
+            _ => panic!(
+                "Unsupported conditional instruction (zero): {}",
+                pair.as_str()
+            ),
+        },
     })
 }
 
-pub fn parse_instruction_one(pair: pest::iterators::Pair<Rule>, mut operand: AstNode, size: Size, condition: Condition) -> AstNode {
-    AstNode::OperationOne ( OperationOne {
+pub fn parse_instruction_one(
+    pair: pest::iterators::Pair<Rule>,
+    mut operand: AstNode,
+    size: Size,
+    condition: Condition,
+) -> AstNode {
+    AstNode::OperationOne(OperationOne {
         size: size,
         condition: condition,
         instruction: match pair.as_str() {
-            "not"   => InstructionOne::Not,
-            "jmp"   => InstructionOne::Jmp,
-            "call"  => InstructionOne::Call,
-            "loop"  => InstructionOne::Loop,
-            "rjmp"  => {
+            "not" => InstructionOne::Not,
+            "jmp" => InstructionOne::Jmp,
+            "call" => InstructionOne::Call,
+            "loop" => InstructionOne::Loop,
+            "rjmp" => {
                 match &mut operand {
-                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
-                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
+                    &mut AstNode::LabelOperand {
+                        ref mut is_relative,
+                        ..
+                    }
+                    | &mut AstNode::LabelOperandPointer {
+                        ref mut is_relative,
+                        ..
+                    } => {
                         *is_relative = true;
                     }
                     _ => {}
                 }
                 InstructionOne::Rjmp
-            },
+            }
             "rcall" => {
                 match &mut operand {
-                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
-                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
+                    &mut AstNode::LabelOperand {
+                        ref mut is_relative,
+                        ..
+                    }
+                    | &mut AstNode::LabelOperandPointer {
+                        ref mut is_relative,
+                        ..
+                    } => {
                         *is_relative = true;
                     }
                     _ => {}
                 }
                 InstructionOne::Rcall
-            },
+            }
             "rloop" => {
                 match &mut operand {
-                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
-                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
+                    &mut AstNode::LabelOperand {
+                        ref mut is_relative,
+                        ..
+                    }
+                    | &mut AstNode::LabelOperandPointer {
+                        ref mut is_relative,
+                        ..
+                    } => {
                         *is_relative = true;
                     }
                     _ => {}
                 }
                 InstructionOne::Rloop
-            },
-            "push"  => InstructionOne::Push,
-            "pop"   => InstructionOne::Pop,
-            "int"   => InstructionOne::Int,
-            "tlb"   => InstructionOne::Tlb,
-            "flp"   => InstructionOne::Flp,
-            _ => panic!("Unsupported conditional instruction (one): {}", pair.as_str()),
+            }
+            "push" => InstructionOne::Push,
+            "pop" => InstructionOne::Pop,
+            "int" => InstructionOne::Int,
+            "tlb" => InstructionOne::Tlb,
+            "flp" => InstructionOne::Flp,
+            _ => panic!(
+                "Unsupported conditional instruction (one): {}",
+                pair.as_str()
+            ),
         },
-        operand: Box::new(operand)
+        operand: Box::new(operand),
     })
 }
 
-pub fn parse_instruction_incdec(pair: pest::iterators::Pair<Rule>, lhs: AstNode, rhs: AstNode, size: Size, condition: Condition) -> AstNode {
-    AstNode::OperationIncDec ( OperationIncDec {
-        size: size,
-        condition: condition,
+pub fn parse_instruction_incdec(
+    pair: pest::iterators::Pair<Rule>,
+    lhs: AstNode,
+    rhs: AstNode,
+    size: Size,
+    condition: Condition,
+) -> AstNode {
+    AstNode::OperationIncDec(OperationIncDec {
+        size,
+        condition,
         instruction: match pair.as_str() {
-            "inc"  => InstructionIncDec::Inc,
-            "dec"  => InstructionIncDec::Dec,
-            _ => panic!("Unsupported conditional instruction (two): {}", pair.as_str()),
+            "inc" => InstructionIncDec::Inc,
+            "dec" => InstructionIncDec::Dec,
+            _ => panic!(
+                "Unsupported conditional instruction (two): {}",
+                pair.as_str()
+            ),
         },
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
     })
 }
 
-
-pub fn parse_instruction_two(pair: pest::iterators::Pair<Rule>, mut lhs: AstNode, mut rhs: AstNode, size: Size, condition: Condition) -> AstNode {
+pub fn parse_instruction_two(
+    pair: pest::iterators::Pair<Rule>,
+    mut lhs: AstNode,
+    mut rhs: AstNode,
+    size: Size,
+    condition: Condition,
+) -> AstNode {
     match pair.as_str() {
-        "sla"  |
-        "sra"  |
-        "srl"  |
-        "rol"  |
-        "ror"  |
-        "bse"  |
-        "bcl"  |
-        "bts"  => if let Some(value) = node_value(&rhs) {
-            rhs = AstNode::Immediate8(value as u8);
+        "sla" | "sra" | "srl" | "rol" | "ror" | "bse" | "bcl" | "bts" => {
+            if let Some(value) = node_value(&rhs) {
+                rhs = AstNode::Immediate8(value as u8);
+            }
         }
-        _=>()
+        _ => (),
     }
-    AstNode::OperationTwo ( OperationTwo {
+    AstNode::OperationTwo(OperationTwo {
         size: size,
         condition: condition,
         instruction: match pair.as_str() {
-            "add"  => InstructionTwo::Add,
-            "sub"  => InstructionTwo::Sub,
-            "mul"  => InstructionTwo::Mul,
+            "add" => InstructionTwo::Add,
+            "sub" => InstructionTwo::Sub,
+            "mul" => InstructionTwo::Mul,
             "imul" => InstructionTwo::Imul,
-            "div"  => InstructionTwo::Div,
+            "div" => InstructionTwo::Div,
             "idiv" => InstructionTwo::Idiv,
-            "rem"  => InstructionTwo::Rem,
+            "rem" => InstructionTwo::Rem,
             "irem" => InstructionTwo::Irem,
-            "and"  => InstructionTwo::And,
-            "or"   => InstructionTwo::Or,
-            "xor"  => InstructionTwo::Xor,
-            "sla"  => InstructionTwo::Sla,
-            "sra"  => InstructionTwo::Sra,
-            "srl"  => InstructionTwo::Srl,
-            "rol"  => InstructionTwo::Rol,
-            "ror"  => InstructionTwo::Ror,
-            "bse"  => InstructionTwo::Bse,
-            "bcl"  => InstructionTwo::Bcl,
-            "bts"  => InstructionTwo::Bts,
-            "cmp"  => InstructionTwo::Cmp,
-            "mov"  => InstructionTwo::Mov,
+            "and" => InstructionTwo::And,
+            "or" => InstructionTwo::Or,
+            "xor" => InstructionTwo::Xor,
+            "sla" => InstructionTwo::Sla,
+            "sra" => InstructionTwo::Sra,
+            "srl" => InstructionTwo::Srl,
+            "rol" => InstructionTwo::Rol,
+            "ror" => InstructionTwo::Ror,
+            "bse" => InstructionTwo::Bse,
+            "bcl" => InstructionTwo::Bcl,
+            "bts" => InstructionTwo::Bts,
+            "cmp" => InstructionTwo::Cmp,
+            "mov" => InstructionTwo::Mov,
             "movz" => InstructionTwo::Movz,
-            "rta"  => {
+            "rta" => {
                 match &mut lhs {
-                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
-                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
+                    &mut AstNode::LabelOperand {
+                        ref mut is_relative,
+                        ..
+                    }
+                    | &mut AstNode::LabelOperandPointer {
+                        ref mut is_relative,
+                        ..
+                    } => {
                         *is_relative = true;
                     }
                     _ => {}
                 }
                 match &mut rhs {
-                    &mut AstNode::LabelOperand        {ref mut is_relative, ..} |
-                    &mut AstNode::LabelOperandPointer {ref mut is_relative, ..} => {
+                    &mut AstNode::LabelOperand {
+                        ref mut is_relative,
+                        ..
+                    }
+                    | &mut AstNode::LabelOperandPointer {
+                        ref mut is_relative,
+                        ..
+                    } => {
                         *is_relative = true;
                     }
                     _ => {}
                 }
                 InstructionTwo::Rta
             }
-            "in"   => InstructionTwo::In,
-            "out"  => InstructionTwo::Out,
-            _ => panic!("Unsupported conditional instruction (two): {}", pair.as_str()),
+            "in" => InstructionTwo::In,
+            "out" => InstructionTwo::Out,
+            _ => panic!(
+                "Unsupported conditional instruction (two): {}",
+                pair.as_str()
+            ),
         },
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
     })
 }
 
+macro_rules! map_instr_opcode {
+    ($node:expr,$($op_type:ident:{$instr_type:ident,$($instr:ident => $opcode:expr,)*},)*) => {
+        match *$node {
+            $(AstNode::$op_type($op_type{size, instruction, ..}) => {
+                match instruction {
+                    $($instr_type::$instr => $opcode | size_to_byte(size),)*
+                }
+            })*,
+            _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", $node),
+        }
+    }
+}
 
 pub fn instruction_to_byte(node: &AstNode) -> u8 {
-    match *node {
-        AstNode::OperationZero (OperationZero{size, instruction, ..}) => {
-            match instruction {
-                InstructionZero::Nop  => 0x00 | size_to_byte(size),
-                InstructionZero::Halt => 0x10 | size_to_byte(size),
-                InstructionZero::Brk  => 0x20 | size_to_byte(size),
-                InstructionZero::Ret  => 0x2A | size_to_byte(size),
-                InstructionZero::Reti => 0x3A | size_to_byte(size),
-                InstructionZero::Ise  => 0x0C | size_to_byte(size),
-                InstructionZero::Icl  => 0x1C | size_to_byte(size),
-                InstructionZero::Mse  => 0x0D | size_to_byte(size),
-                InstructionZero::Mcl  => 0x1D | size_to_byte(size),
-            }
-        }
-        AstNode::OperationOne (OperationOne{size, instruction, ..}) => {
-            match instruction {
-                InstructionOne::Not   => 0x33 | size_to_byte(size),
-                InstructionOne::Jmp   => 0x08 | size_to_byte(size),
-                InstructionOne::Call  => 0x18 | size_to_byte(size),
-                InstructionOne::Loop  => 0x28 | size_to_byte(size),
-                InstructionOne::Rjmp  => 0x09 | size_to_byte(size),
-                InstructionOne::Rcall => 0x19 | size_to_byte(size),
-                InstructionOne::Rloop => 0x29 | size_to_byte(size),
-                InstructionOne::Push  => 0x0A | size_to_byte(size),
-                InstructionOne::Pop   => 0x1A | size_to_byte(size),
-                InstructionOne::Int   => 0x2C | size_to_byte(size),
-                InstructionOne::Tlb   => 0x2D | size_to_byte(size),
-                InstructionOne::Flp   => 0x3D | size_to_byte(size),
-            }
-        }
-        AstNode::OperationIncDec (OperationIncDec{size, instruction, ..}) => {
-            match instruction {
-                InstructionIncDec::Inc   => 0x11 | size_to_byte(size),
-                InstructionIncDec::Dec   => 0x31 | size_to_byte(size),
-            }
-        }
-        AstNode::OperationTwo (OperationTwo{size, instruction, ..}) => {
-            match instruction {
-                InstructionTwo::Add  => 0x01 | size_to_byte(size),
-                InstructionTwo::Sub  => 0x21 | size_to_byte(size),
-                InstructionTwo::Mul  => 0x02 | size_to_byte(size),
-                InstructionTwo::Imul => 0x14 | size_to_byte(size),
-                InstructionTwo::Div  => 0x22 | size_to_byte(size),
-                InstructionTwo::Idiv => 0x34 | size_to_byte(size),
-                InstructionTwo::Rem  => 0x32 | size_to_byte(size),
-                InstructionTwo::Irem => 0x35 | size_to_byte(size),
-                InstructionTwo::And  => 0x03 | size_to_byte(size),
-                InstructionTwo::Or   => 0x13 | size_to_byte(size),
-                InstructionTwo::Xor  => 0x23 | size_to_byte(size),
-                InstructionTwo::Sla  => 0x04 | size_to_byte(size),
-                InstructionTwo::Sra  => 0x05 | size_to_byte(size),
-                InstructionTwo::Srl  => 0x15 | size_to_byte(size),
-                InstructionTwo::Rol  => 0x24 | size_to_byte(size),
-                InstructionTwo::Ror  => 0x25 | size_to_byte(size),
-                InstructionTwo::Bse  => 0x06 | size_to_byte(size),
-                InstructionTwo::Bcl  => 0x16 | size_to_byte(size),
-                InstructionTwo::Bts  => 0x26 | size_to_byte(size),
-                InstructionTwo::Cmp  => 0x07 | size_to_byte(size),
-                InstructionTwo::Mov  => 0x17 | size_to_byte(size),
-                InstructionTwo::Movz => 0x27 | size_to_byte(size),
-                InstructionTwo::Rta  => 0x39 | size_to_byte(size),
-                InstructionTwo::In   => 0x0B | size_to_byte(size),
-                InstructionTwo::Out  => 0x1B | size_to_byte(size),
-            }
-        }
-        _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", node),
-    }
+    map_instr_opcode!(
+        node,
+
+        OperationZero: {
+            InstructionZero,
+            Nop  => 0x00,
+            Halt => 0x10,
+            Brk  => 0x20,
+            Ret  => 0x2A,
+            Reti => 0x3A,
+            Ise  => 0x0C,
+            Icl  => 0x1C,
+            Mse  => 0x0D,
+            Mcl  => 0x1D,
+        },
+
+        OperationOne: {
+            InstructionOne,
+            Not   => 0x33,
+            Jmp   => 0x08,
+            Call  => 0x18,
+            Loop  => 0x28,
+            Rjmp  => 0x09,
+            Rcall => 0x19,
+            Rloop => 0x29,
+            Push  => 0x0A,
+            Pop   => 0x1A,
+            Int   => 0x2C,
+            Tlb   => 0x2D,
+            Flp   => 0x3D,
+        },
+
+        OperationIncDec: {
+            InstructionIncDec,
+            Inc => 0x11,
+            Dec => 0x31,
+        },
+
+        OperationTwo: {
+            InstructionTwo,
+            Add  => 0x01,
+            Sub  => 0x21,
+            Mul  => 0x02,
+            Imul => 0x14,
+            Div  => 0x22,
+            Idiv => 0x34,
+            Rem  => 0x32,
+            Irem => 0x35,
+            And  => 0x03,
+            Or   => 0x13,
+            Xor  => 0x23,
+            Sla  => 0x04,
+            Sra  => 0x05,
+            Srl  => 0x15,
+            Rol  => 0x24,
+            Ror  => 0x25,
+            Bse  => 0x06,
+            Bcl  => 0x16,
+            Bts  => 0x26,
+            Cmp  => 0x07,
+            Mov  => 0x17,
+            Movz => 0x27,
+            Rta  => 0x39,
+            In   => 0x0B,
+            Out  => 0x1B,
+        },
+    )
 }
