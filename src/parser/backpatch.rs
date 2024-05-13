@@ -27,7 +27,7 @@ impl BackpatchTarget {
     }
 
     pub fn write(&self, size: Size, address: u32) {
-        let ref instruction = self.instruction;
+        let instruction = &self.instruction;
         let mut instruction_data = instruction.borrow_mut();
 
         let address_bytes = if self.is_relative {

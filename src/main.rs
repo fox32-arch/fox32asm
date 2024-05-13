@@ -81,7 +81,7 @@ fn main() {
 
     let mut input_file = read_to_string(input_file_name).expect("cannot read file");
     println!("Parsing includes...");
-    let mut source_path = canonicalize(&input_file_name).unwrap();
+    let mut source_path = canonicalize(input_file_name).unwrap();
     source_path.pop();
     *SOURCE_PATH.lock().unwrap() = source_path;
     for _ in 0..128 {
@@ -115,7 +115,7 @@ fn main() {
         node = optimize_node(node, &mut optimize);
         if let AstNode::LabelDefine { name, .. } = node {
             let mut address_table = LABEL_ADDRESSES.lock().unwrap();
-            if let Some(_) = address_table.get(&name) {
+            if address_table.get(&name).is_some() {
                 // this label already exists, print an error and exit
                 println!("Label \"{}\" was defined more than once!", name);
                 exit(1);
@@ -182,9 +182,9 @@ fn main() {
     // if we're generating a FXF binary, write out the header first
     if is_fxf {
         // magic bytes and version
-        binary.push('F' as u8);
-        binary.push('X' as u8);
-        binary.push('F' as u8);
+        binary.push(b'F');
+        binary.push(b'X');
+        binary.push(b'F');
         binary.push(0);
 
         let mut code_size = 0;
@@ -286,12 +286,12 @@ fn assemble_node(node: AstNode) -> AssembledInstruction {
     instruction_data.push(condition_source_destination);
     instruction_data.push(instruction_to_byte(&node));
 
-    let mut instruction: AssembledInstruction = instruction_data.into();
+    let instruction: AssembledInstruction = instruction_data.into();
 
     //0x80 bit determines if we need to write the pointer offsets or not
     node_to_immediate_values(
         &node,
-        &mut instruction,
+        &instruction,
         condition_source_destination & 0x80 != 0,
     );
 
@@ -404,7 +404,7 @@ fn node_to_immediate_values(
 fn node_value(node: &AstNode) -> Option<u32> {
     match *node {
         AstNode::Immediate16(n) => Some(n as u32),
-        AstNode::Immediate32(n) => Some(n as u32),
+        AstNode::Immediate32(n) => Some(n),
         AstNode::Immediate8(n) => Some(n as u32),
         _ => None,
     }

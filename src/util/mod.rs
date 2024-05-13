@@ -4,7 +4,7 @@ pub mod conversion;
 
 pub fn format_address_table(m: &HashMap<String, (u32, bool)>) -> String {
     let mut v: Vec<(&String, &u32)> = Vec::new();
-    for i in m.into_iter() {
+    for i in m.iter() {
         v.push((i.0, &i.1 .0));
     }
     v.sort_by(|(_, v1), (_, v2)| u32::cmp(v1, v2));

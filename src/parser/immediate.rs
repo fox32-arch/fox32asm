@@ -30,7 +30,7 @@ pub fn parse_immediate(pair: pest::iterators::Pair<Rule>) -> u32 {
         }
         Rule::immediate_char => {
             let body_char_str = pair.into_inner().next().unwrap().as_str();
-            body_char_str.chars().nth(0).unwrap() as u8 as u32
+            body_char_str.chars().next().unwrap() as u8 as u32
         }
         _ => {
             panic!()

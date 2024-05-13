@@ -194,8 +194,8 @@ pub fn parse_instruction_zero(
     condition: Condition,
 ) -> AstNode {
     AstNode::OperationZero(OperationZero {
-        size: size,
-        condition: condition,
+        size,
+        condition,
         instruction: match pair.as_str() {
             "nop" => InstructionZero::Nop,
             "halt" => InstructionZero::Halt,
@@ -221,8 +221,8 @@ pub fn parse_instruction_one(
     condition: Condition,
 ) -> AstNode {
     AstNode::OperationOne(OperationOne {
-        size: size,
-        condition: condition,
+        size,
+        condition,
         instruction: match pair.as_str() {
             "not" => InstructionOne::Not,
             "jmp" => InstructionOne::Jmp,
@@ -329,8 +329,8 @@ pub fn parse_instruction_two(
         _ => (),
     }
     AstNode::OperationTwo(OperationTwo {
-        size: size,
-        condition: condition,
+        size,
+        condition,
         instruction: match pair.as_str() {
             "add" => InstructionTwo::Add,
             "sub" => InstructionTwo::Sub,

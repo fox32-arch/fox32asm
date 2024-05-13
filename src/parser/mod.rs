@@ -185,7 +185,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
     }
 }
 
-pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
+pub fn parse(source: &str) -> Result<Vec<AstNode>, Box<Error<Rule>>> {
     let mut ast = vec![];
     let pairs = Fox32Parser::parse(Rule::assembly, source)?;
 

@@ -7,7 +7,7 @@ use crate::{
 
 pub fn include_text_file(line_number: usize, text: &str, input_file: String) -> String {
     //println!("{}, {}", line_number, text);
-    let path_start_index = text.find("\"").unwrap() + 1;
+    let path_start_index = text.find('"').unwrap() + 1;
     let path_end_index = text.len() - 1;
     let path_string = &text[path_start_index..path_end_index];
     //let path = canonicalize(path_string).expect(&format!("failed to include file \"{}\"", path_string));
