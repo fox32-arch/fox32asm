@@ -1,6 +1,9 @@
 use std::fs;
 
-use crate::{parser::{AstNode, Rule}, SOURCE_PATH};
+use crate::{
+    parser::{AstNode, Rule},
+    SOURCE_PATH,
+};
 
 pub fn include_text_file(line_number: usize, text: &str, input_file: String) -> String {
     //println!("{}, {}", line_number, text);
@@ -12,7 +15,10 @@ pub fn include_text_file(line_number: usize, text: &str, input_file: String) -> 
     let mut source_path = SOURCE_PATH.lock().unwrap().clone();
     source_path.push(path_string);
 
-    println!("Including file as text data: {:#?}", source_path.file_name().expect("invalid filename"));
+    println!(
+        "Including file as text data: {:#?}",
+        source_path.file_name().expect("invalid filename")
+    );
 
     let mut start_of_original_file = String::new();
     for (i, text) in input_file.lines().enumerate() {
@@ -22,7 +28,8 @@ pub fn include_text_file(line_number: usize, text: &str, input_file: String) -> 
         }
     }
 
-    let mut included_file = fs::read_to_string(source_path).expect(&format!("failed to include file \"{}\"", path_string));
+    let mut included_file = fs::read_to_string(source_path)
+        .expect(&format!("failed to include file \"{}\"", path_string));
     included_file.push('\n');
 
     let mut end_of_original_file = String::new();
@@ -47,11 +54,17 @@ pub fn include_binary_file(pair: pest::iterators::Pair<Rule>, optional: bool) ->
     let mut source_path = SOURCE_PATH.lock().unwrap().clone();
     source_path.push(path_string);
 
-    println!("Including file as binary data: {:#?}", source_path.file_name().expect("invalid filename"));
+    println!(
+        "Including file as binary data: {:#?}",
+        source_path.file_name().expect("invalid filename")
+    );
 
     let binary = fs::read(&source_path);
     if binary.is_err() && optional {
-        println!("Optional include was not found: {:#?}", source_path.file_name().expect("invalid filename"));
+        println!(
+            "Optional include was not found: {:#?}",
+            source_path.file_name().expect("invalid filename")
+        );
         return AstNode::IncludedBinary(vec![]);
     } else if binary.is_err() {
         panic!("failed to include file");

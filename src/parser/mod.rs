@@ -1,14 +1,26 @@
 use pest::{error::Error, Parser as _};
 
-use crate::{include::include_binary_file, instr::{parse_instruction_incdec, parse_instruction_one, parse_instruction_two, parse_instruction_zero, Condition, LabelKind, OperationIncDec, OperationOne, OperationTwo, OperationZero, Size}, SizeOrLabelName, CURRENT_CONDITION, CURRENT_SIZE};
+use crate::{
+    include::include_binary_file,
+    instr::{
+        parse_instruction_incdec, parse_instruction_one, parse_instruction_two,
+        parse_instruction_zero, Condition, LabelKind, OperationIncDec, OperationOne, OperationTwo,
+        OperationZero, Size,
+    },
+    SizeOrLabelName, CURRENT_CONDITION, CURRENT_SIZE,
+};
 
-use self::{data::{parse_constant, parse_data, parse_operand}, label::parse_label, typed::{parse_condition, parse_incdec_amount, parse_opt, parse_origin, parse_size}};
+use self::{
+    data::{parse_constant, parse_data, parse_operand},
+    label::parse_label,
+    typed::{parse_condition, parse_incdec_amount, parse_opt, parse_origin, parse_size},
+};
 
 pub mod backpatch;
-pub mod typed;
 pub mod data;
-pub mod label;
 pub mod immediate;
+pub mod label;
+pub mod typed;
 
 #[derive(Parser)]
 #[grammar = "fox32.pest"]
@@ -16,10 +28,10 @@ pub struct Fox32Parser;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum AstNode {
-    OperationZero(OperationZero) ,
-    OperationOne (OperationOne),
-    OperationIncDec(OperationIncDec) ,
-    OperationTwo (OperationTwo),
+    OperationZero(OperationZero),
+    OperationOne(OperationOne),
+    OperationIncDec(OperationIncDec),
+    OperationTwo(OperationTwo),
 
     Immediate8(u8),
     Immediate16(u16),
@@ -62,7 +74,7 @@ pub enum AstNode {
 
     Origin(u32),
     OriginPadded(u32),
-    Optimize(bool)
+    Optimize(bool),
 }
 fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("parse_instruction: {:#?}", pair); // debug
@@ -89,7 +101,12 @@ fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
                     *CURRENT_SIZE.lock().unwrap() = size;
                     let operand = inner_pair.next().unwrap();
                     let operand_ast = build_ast_from_expression(operand);
-                    parse_instruction_one(instruction_conditional_pair, operand_ast, size, condition)
+                    parse_instruction_one(
+                        instruction_conditional_pair,
+                        operand_ast,
+                        size,
+                        condition,
+                    )
                 }
                 Rule::instruction_incdec => {
                     if inner_pair.peek().unwrap().as_rule() == Rule::size {
@@ -104,7 +121,13 @@ fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
                     } else {
                         AstNode::Immediate8(0)
                     };
-                    parse_instruction_incdec(instruction_conditional_pair, lhs_ast, rhs_ast, size, condition)
+                    parse_instruction_incdec(
+                        instruction_conditional_pair,
+                        lhs_ast,
+                        rhs_ast,
+                        size,
+                        condition,
+                    )
                 }
                 Rule::instruction_two => {
                     if inner_pair.peek().unwrap().as_rule() == Rule::size {
@@ -115,7 +138,13 @@ fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
                     let rhs = inner_pair.next().unwrap();
                     let lhs_ast = build_ast_from_expression(lhs);
                     let rhs_ast = build_ast_from_expression(rhs);
-                    parse_instruction_two(instruction_conditional_pair, lhs_ast, rhs_ast, size, condition)
+                    parse_instruction_two(
+                        instruction_conditional_pair,
+                        lhs_ast,
+                        rhs_ast,
+                        size,
+                        condition,
+                    )
                 }
                 _ => todo!(),
             }
@@ -123,7 +152,6 @@ fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
         _ => panic!("Unsupported instruction type: {:#?}", pair.as_rule()),
     }
 }
-
 
 fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("{:#?}\n\n", pair); // debug
@@ -156,7 +184,6 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
         _ => todo!("{:#?}", pair_rule),
     }
 }
-
 
 pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
     let mut ast = vec![];

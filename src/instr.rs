@@ -7,7 +7,6 @@ use std::{
 use crate::{
     node_value,
     parser::{AstNode, Rule},
-    util::size_to_byte,
 };
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -394,87 +393,4 @@ pub fn parse_instruction_two(
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
     })
-}
-
-macro_rules! map_instr_opcode {
-    ($node:expr,$($op_type:ident:{$instr_type:ident,$($instr:ident => $opcode:expr,)*},)*) => {
-        match *$node {
-            $(AstNode::$op_type($op_type{size, instruction, ..}) => {
-                match instruction {
-                    $($instr_type::$instr => $opcode | size_to_byte(size),)*
-                }
-            })*,
-            _ => panic!("Attempting to parse a non-instruction AST node as an instruction: {:#?}", $node),
-        }
-    }
-}
-
-pub fn instruction_to_byte(node: &AstNode) -> u8 {
-    map_instr_opcode!(
-        node,
-
-        OperationZero: {
-            InstructionZero,
-            Nop  => 0x00,
-            Halt => 0x10,
-            Brk  => 0x20,
-            Ret  => 0x2A,
-            Reti => 0x3A,
-            Ise  => 0x0C,
-            Icl  => 0x1C,
-            Mse  => 0x0D,
-            Mcl  => 0x1D,
-        },
-
-        OperationOne: {
-            InstructionOne,
-            Not   => 0x33,
-            Jmp   => 0x08,
-            Call  => 0x18,
-            Loop  => 0x28,
-            Rjmp  => 0x09,
-            Rcall => 0x19,
-            Rloop => 0x29,
-            Push  => 0x0A,
-            Pop   => 0x1A,
-            Int   => 0x2C,
-            Tlb   => 0x2D,
-            Flp   => 0x3D,
-        },
-
-        OperationIncDec: {
-            InstructionIncDec,
-            Inc => 0x11,
-            Dec => 0x31,
-        },
-
-        OperationTwo: {
-            InstructionTwo,
-            Add  => 0x01,
-            Sub  => 0x21,
-            Mul  => 0x02,
-            Imul => 0x14,
-            Div  => 0x22,
-            Idiv => 0x34,
-            Rem  => 0x32,
-            Irem => 0x35,
-            And  => 0x03,
-            Or   => 0x13,
-            Xor  => 0x23,
-            Sla  => 0x04,
-            Sra  => 0x05,
-            Srl  => 0x15,
-            Rol  => 0x24,
-            Ror  => 0x25,
-            Bse  => 0x06,
-            Bcl  => 0x16,
-            Bts  => 0x26,
-            Cmp  => 0x07,
-            Mov  => 0x17,
-            Movz => 0x27,
-            Rta  => 0x39,
-            In   => 0x0B,
-            Out  => 0x1B,
-        },
-    )
 }

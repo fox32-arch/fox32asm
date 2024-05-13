@@ -1,12 +1,12 @@
 use crate::instr::Condition;
 
-use super::{data::parse_operand, AstNode, Size, Rule};
+use super::{data::parse_operand, AstNode, Rule, Size};
 
 pub fn parse_opt(rule: pest::iterators::Pair<Rule>) -> AstNode {
     match rule.as_str() {
-        "opton"=>AstNode::Optimize(true),
-        "optoff"=>AstNode::Optimize(false),
-        _ => panic!("Unknown optimize flag {}", rule.as_str())
+        "opton" => AstNode::Optimize(true),
+        "optoff" => AstNode::Optimize(false),
+        _ => panic!("Unknown optimize flag {}", rule.as_str()),
     }
 }
 pub fn parse_origin(pair: pest::iterators::Pair<Rule>) -> AstNode {
@@ -22,7 +22,7 @@ pub fn parse_origin(pair: pest::iterators::Pair<Rule>) -> AstNode {
                 }
             };
             AstNode::Origin(address)
-        },
+        }
         Rule::origin_padding => {
             let ast = parse_operand(pair.into_inner().next().unwrap(), false);
             let address = {
@@ -33,7 +33,7 @@ pub fn parse_origin(pair: pest::iterators::Pair<Rule>) -> AstNode {
                 }
             };
             AstNode::OriginPadded(address)
-        },
+        }
         _ => panic!("Unsupported origin: {}", pair.as_str()),
     }
 }

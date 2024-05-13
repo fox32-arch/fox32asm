@@ -18,7 +18,7 @@ pub fn parse_immediate(pair: pest::iterators::Pair<Rule>) -> u32 {
     match pair.as_rule() {
         Rule::immediate_bin => {
             let body_bin_str = pair.into_inner().next().unwrap().as_str();
-        u32::from_str_radix(&remove_underscores(body_bin_str), 2).unwrap()
+            u32::from_str_radix(&remove_underscores(body_bin_str), 2).unwrap()
         }
         Rule::immediate_hex => {
             let body_hex_str = pair.into_inner().next().unwrap().as_str();
@@ -32,7 +32,7 @@ pub fn parse_immediate(pair: pest::iterators::Pair<Rule>) -> u32 {
             let body_char_str = pair.into_inner().next().unwrap().as_str();
             body_char_str.chars().nth(0).unwrap() as u8 as u32
         }
-        _=> {
+        _ => {
             panic!()
         }
     }

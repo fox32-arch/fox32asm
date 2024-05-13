@@ -1,14 +1,24 @@
 use crate::{instr::Size, SizeOrLabelName, CURRENT_SIZE};
 
-use super::{immediate::{immediate_to_astnode, parse_immediate}, AstNode, Rule};
+use super::{
+    immediate::{immediate_to_astnode, parse_immediate},
+    AstNode, Rule,
+};
 
 fn parse_register(pair: pest::iterators::Pair<Rule>) -> u8 {
     let register_num_pair = pair.into_inner().next().unwrap();
-    let register_num = if register_num_pair.as_str() == "sp" { 32 }
-    else if register_num_pair.as_str() == "esp" { 33 }
-    else if register_num_pair.as_str() == "fp" { 34 }
-    else { register_num_pair.as_str().parse::<u8>().unwrap() };
-    if register_num > 34 { panic!("register number out of range"); }
+    let register_num = if register_num_pair.as_str() == "sp" {
+        32
+    } else if register_num_pair.as_str() == "esp" {
+        33
+    } else if register_num_pair.as_str() == "fp" {
+        34
+    } else {
+        register_num_pair.as_str().parse::<u8>().unwrap()
+    };
+    if register_num > 34 {
+        panic!("register number out of range");
+    }
     register_num
 }
 
@@ -16,14 +26,13 @@ pub fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) ->
     //println!("parse_operand: {:#?}", pair); // debug
     // dbg!(&pair);
     let size = *CURRENT_SIZE.lock().unwrap();
-    let pointer_offset = 
-    if is_pointer {
+    let pointer_offset = if is_pointer {
         // skip past the operand_value_ptr pair and look at its operand_value rule
         let mut pairs = pair.into_inner();
         pair = pairs.next().unwrap();
         pairs.next()
         // pair = pair.into_inner().next().unwrap();
-    }else {
+    } else {
         None
     };
     match pair.as_rule() {
@@ -31,10 +40,10 @@ pub fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) ->
             let mut inner_pair = pair.into_inner();
             let operand_value_pair = inner_pair.next().unwrap();
             match operand_value_pair.as_rule() {
-                Rule::immediate_bin|
-                Rule::immediate_char|
-                Rule::immediate_dec|
-                Rule::immediate_hex => {
+                Rule::immediate_bin
+                | Rule::immediate_char
+                | Rule::immediate_dec
+                | Rule::immediate_hex => {
                     immediate_to_astnode(parse_immediate(operand_value_pair), size, is_pointer)
                 }
                 Rule::register => {
@@ -100,38 +109,67 @@ pub fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("{:#?}", pair);
     *CURRENT_SIZE.lock().unwrap() = Size::Word;
     match pair.as_rule() {
-        Rule::data_byte => {
-            match parse_operand(pair.into_inner().next().unwrap(), false) {
-                AstNode::Immediate32(half) => AstNode::DataByte(half as u8),
-                AstNode::LabelOperand {name, size: _, is_relative} =>
-                    AstNode::LabelOperand {name, size: Size::Byte, is_relative},
-                _ => unreachable!(),
-            }
+        Rule::data_byte => match parse_operand(pair.into_inner().next().unwrap(), false) {
+            AstNode::Immediate32(half) => AstNode::DataByte(half as u8),
+            AstNode::LabelOperand {
+                name,
+                size: _,
+                is_relative,
+            } => AstNode::LabelOperand {
+                name,
+                size: Size::Byte,
+                is_relative,
+            },
+            _ => unreachable!(),
         },
-        Rule::data_half => {
-            match parse_operand(pair.into_inner().next().unwrap(), false) {
-                AstNode::Immediate32(half) => AstNode::DataHalf(half as u16),
-                AstNode::LabelOperand {name, size: _, is_relative} =>
-                    AstNode::LabelOperand {name, size: Size::Half, is_relative},
-                _ => unreachable!(),
-            }
+        Rule::data_half => match parse_operand(pair.into_inner().next().unwrap(), false) {
+            AstNode::Immediate32(half) => AstNode::DataHalf(half as u16),
+            AstNode::LabelOperand {
+                name,
+                size: _,
+                is_relative,
+            } => AstNode::LabelOperand {
+                name,
+                size: Size::Half,
+                is_relative,
+            },
+            _ => unreachable!(),
         },
-        Rule::data_word => {
-            match parse_operand(pair.into_inner().next().unwrap(), false) {
-                AstNode::Immediate32(word) => AstNode::DataWord(word),
-                AstNode::LabelOperand {name, size: _, is_relative} =>
-                    AstNode::LabelOperand {name, size: Size::Word, is_relative},
-                _ => unreachable!(),
-            }
+        Rule::data_word => match parse_operand(pair.into_inner().next().unwrap(), false) {
+            AstNode::Immediate32(word) => AstNode::DataWord(word),
+            AstNode::LabelOperand {
+                name,
+                size: _,
+                is_relative,
+            } => AstNode::LabelOperand {
+                name,
+                size: Size::Word,
+                is_relative,
+            },
+            _ => unreachable!(),
         },
         Rule::data_str => {
-            let string = pair.into_inner().next().unwrap().into_inner().next().unwrap().as_str();
+            let string = pair
+                .into_inner()
+                .next()
+                .unwrap()
+                .into_inner()
+                .next()
+                .unwrap()
+                .as_str();
             AstNode::DataStr(string.to_string())
-        },
+        }
         Rule::data_strz => {
-            let string = pair.into_inner().next().unwrap().into_inner().next().unwrap().as_str();
+            let string = pair
+                .into_inner()
+                .next()
+                .unwrap()
+                .into_inner()
+                .next()
+                .unwrap()
+                .as_str();
             AstNode::DataStrZero(string.to_string())
-        },
+        }
         Rule::data_fill => {
             let value = {
                 let ast = parse_operand(pair.clone().into_inner().next().unwrap(), false);
@@ -145,15 +183,15 @@ pub fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
                 let ast = parse_operand(pair.into_inner().nth(1).unwrap(), false);
                 if let AstNode::Immediate32(word) = ast {
                     SizeOrLabelName::Size(word)
-                } else if let AstNode::LabelOperand {name, ..} = ast {
+                } else if let AstNode::LabelOperand { name, .. } = ast {
                     SizeOrLabelName::Label(name)
                 } else {
                     dbg!(ast);
                     unreachable!()
                 }
             };
-            AstNode::DataFill {value, size}
-        },
+            AstNode::DataFill { value, size }
+        }
         _ => panic!("Unsupported data: {}", pair.as_str()),
     }
 }
