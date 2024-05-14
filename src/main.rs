@@ -3,7 +3,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     env,
     fmt::Debug,
-    fs::{self, File},
+    fs,
     path::PathBuf,
     process,
     sync::Mutex,
@@ -14,6 +14,9 @@ pub(crate) mod include;
 pub(crate) mod instr;
 pub(crate) mod parser;
 pub(crate) mod util;
+
+#[cfg(test)]
+mod tests;
 
 use crate::{
     assembler::{Assembler, BinaryType},
@@ -82,7 +85,11 @@ fn main() -> anyhow::Result<()> {
 
     let output = (
         output_file_name.to_string(),
-        File::create(output_file_name)?,
+        fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(output_file_name)?,
     );
 
     let mut assembler = Assembler {

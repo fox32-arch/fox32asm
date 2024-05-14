@@ -1,0 +1,3 @@
+[submodule "asm-test"]
+	path = asm-test
+	url = https://github.com/fox32-arch/demos.git
