@@ -1,19 +1,25 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use crate::{
     parser::{AstNode, Rule},
     POISONED_MUTEX_ERR, SOURCE_PATH,
 };
 
-pub fn include_text_file(line_number: usize, text: &str, input_file: String) -> Option<String> {
-    //println!("{}, {}", line_number, text);
+pub fn include_text_file(
+    source_path: &Path,
+    line_number: usize,
+    text: &str,
+    input_file: String,
+) -> Option<String> {
     let path_start_index = text.find('"')? + 1;
     let path_end_index = text.len() - 1;
     let path_string = &text[path_start_index..path_end_index];
-    //let path = canonicalize(path_string).expect(&format!("failed to include file \"{}\"", path_string));
 
-    let mut source_path = SOURCE_PATH.lock().expect(POISONED_MUTEX_ERR).clone();
-    source_path.push(path_string);
+    let source_path = {
+        let mut inner = source_path.to_path_buf();
+        inner.push(path_string);
+        inner
+    };
 
     println!(
         "Including file as text data: {:#?}",
@@ -45,6 +51,7 @@ pub fn include_text_file(line_number: usize, text: &str, input_file: String) -> 
     final_file.push_str(&start_of_original_file);
     final_file.push_str(&included_file);
     final_file.push_str(&end_of_original_file);
+    println!("finished including text");
     Some(final_file)
 }
 

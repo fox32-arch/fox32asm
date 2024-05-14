@@ -46,7 +46,7 @@ pub fn assemble_node(node: AstNode) -> anyhow::Result<AssembledInstruction> {
 
     let instruction: AssembledInstruction = instruction_data.into();
 
-    //0x80 bit determines if we need to write the pointer offsets or not
+    // 0x80 bit determines if we need to write the pointer offsets or not
     node_to_immediate_values(
         &node,
         &instruction,
@@ -191,15 +191,6 @@ pub fn optimize_node(node: AstNode, enabled: &mut bool) -> AstNode {
                                 }
                             }
                         }
-                        // InstructionTwo::Sla
-                        // | InstructionTwo::Srl | InstructionTwo::Sra
-                        // | InstructionTwo::Bcl | InstructionTwo::Bse
-                        // | InstructionTwo::Bts
-                        // | InstructionTwo::Ror | InstructionTwo::Rol
-                        // => {
-                        //     n.rhs = Box::new(AstNode::Immediate8(v as u8));
-
-                        // }
                         _ => (),
                     }
                 }

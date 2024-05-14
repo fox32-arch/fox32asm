@@ -48,12 +48,16 @@ impl Assembler {
             for (line_number, text) in loop_file.lines().enumerate() {
                 match text.trim() {
                     s if s.starts_with("#include \"") => {
-                        self.input.0 =
-                            include_text_file(line_number, text.trim(), self.input.0.clone())
-                                .ok_or(anyhow::Error::msg(format!(
-                                    "failed to include text file {}",
-                                    self.input.1.display()
-                                )))?;
+                        self.input.0 = include_text_file(
+                            &source_path.clone(),
+                            line_number,
+                            text.trim(),
+                            self.input.0.clone(),
+                        )
+                        .ok_or(anyhow::Error::msg(format!(
+                            "failed to include text file {}",
+                            self.input.1.display()
+                        )))?;
                         break;
                     }
                     _ => {}
