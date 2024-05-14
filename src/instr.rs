@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    node_value,
+    assembler::node::node_value,
     parser::{AstNode, Rule},
 };
 
