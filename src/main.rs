@@ -4,7 +4,6 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
-use core::panic;
 use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fmt::Debug;
@@ -21,11 +20,11 @@ pub(crate) mod util;
 
 use include::include_text_file;
 use instr::{
-    AssembledInstruction, Condition, InstructionIncDec, InstructionTwo, OperationIncDec,
-    OperationOne, OperationTwo, Size,
+    AssembledInstruction, Condition, InstructionIncDec, InstructionTwo, OperationIncDec, Size,
 };
 use parser::{
     backpatch::{immediate, perform_backpatching, BackpatchTarget},
+    immediate::node_to_immediate_values,
     AstNode,
 };
 use util::conversion::condition_source_destination_to_byte;
@@ -314,104 +313,6 @@ fn assemble_node(node: AstNode) -> anyhow::Result<AssembledInstruction> {
 //     node_to_immediate_values(&node, &mut vec);
 //     vec
 // }
-
-fn operand_to_immediate_value(
-    instruction: &AssembledInstruction,
-    node: &AstNode,
-    pointer_offset: bool,
-) -> anyhow::Result<()> {
-    let mut vec = instruction.borrow_mut();
-    match *node {
-        AstNode::Register(register) => vec.push(register),
-        AstNode::RegisterPointer(register) => {
-            vec.push(register);
-            if pointer_offset {
-                vec.push(0);
-            }
-        }
-        AstNode::RegisterPointerOffset(register, offset) => {
-            vec.push(register);
-            if pointer_offset {
-                vec.push(offset);
-            }
-        }
-
-        AstNode::Immediate8(immediate) => vec.push(immediate),
-        AstNode::Immediate16(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-        AstNode::Immediate32(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-        AstNode::ImmediatePointer(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),
-
-        AstNode::LabelOperand {
-            ref name,
-            size,
-            is_relative,
-        } => {
-            std::mem::drop(vec);
-            immediate::generate_backpatch(name, size, instruction, is_relative)?;
-        }
-        AstNode::LabelOperandPointer {
-            ref name,
-            is_relative,
-        } => {
-            std::mem::drop(vec);
-            immediate::generate_backpatch(name, Size::Word, instruction, is_relative)?;
-        }
-
-        _ => panic!(
-            "Attempting to parse a non-instruction AST node as an instruction: {:#?}",
-            node
-        ),
-    }
-
-    Ok(())
-}
-
-fn node_to_immediate_values(
-    node: &AstNode,
-    instruction: &AssembledInstruction,
-    pointer_offset: bool,
-) -> anyhow::Result<()> {
-    {
-        match node {
-            AstNode::OperationZero { .. } => {}
-
-            AstNode::OperationOne(OperationOne { operand, .. }) => {
-                operand_to_immediate_value(instruction, operand.as_ref(), pointer_offset)?
-            }
-
-            AstNode::OperationIncDec(OperationIncDec { lhs, .. }) => {
-                operand_to_immediate_value(instruction, lhs.as_ref(), pointer_offset)?
-            }
-
-            AstNode::OperationTwo(OperationTwo { rhs, .. }) => {
-                operand_to_immediate_value(instruction, rhs.as_ref(), pointer_offset)?
-            }
-
-            _ => panic!(
-                "Attempting to parse a non-instruction AST node as an instruction: {:#?}",
-                node
-            ),
-        }
-    }
-
-    match node {
-        AstNode::OperationZero { .. } => {}
-        AstNode::OperationOne { .. } => {}
-        AstNode::OperationIncDec { .. } => {}
-
-        AstNode::OperationTwo(OperationTwo { lhs, .. }) => {
-            operand_to_immediate_value(instruction, lhs.as_ref(), pointer_offset)?
-        }
-
-        _ => panic!(
-            "Attempting to parse a non-instruction AST node as an instruction: {:#?}",
-            node
-        ),
-    };
-
-    Ok(())
-}
-
 fn node_value(node: &AstNode) -> Option<u32> {
     match *node {
         AstNode::Immediate16(n) => Some(n as u32),
