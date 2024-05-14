@@ -55,7 +55,9 @@ enum SizeOrLabelName {
     Label(String),
 }
 
-fn main() {
+pub const POISONED_MUTEX_ERR: &str = "failed to lock mutex; possibly poisoined";
+
+fn main() -> anyhow::Result<()> {
     let version_string = format!(
         "fox32asm {} ({})",
         env!("VERGEN_BUILD_SEMVER"),
@@ -81,15 +83,18 @@ fn main() {
 
     let mut input_file = read_to_string(input_file_name).expect("cannot read file");
     println!("Parsing includes...");
-    let mut source_path = canonicalize(input_file_name).unwrap();
+    let mut source_path = canonicalize(input_file_name)?;
     source_path.pop();
-    *SOURCE_PATH.lock().unwrap() = source_path;
+    *SOURCE_PATH.lock().expect(POISONED_MUTEX_ERR) = source_path;
     for _ in 0..128 {
         let loop_file = input_file.clone(); // this is a hack to allow modifying input_file from inside the for loop
         for (line_number, text) in loop_file.lines().enumerate() {
             match text.trim() {
                 s if s.starts_with("#include \"") => {
-                    input_file = include_text_file(line_number, text.trim(), input_file);
+                    input_file = include_text_file(line_number, text.trim(), input_file.clone())
+                        .ok_or(anyhow::Error::msg(format!(
+                            "failed to include text file {input_file}",
+                        )))?;
                     break;
                 }
                 _ => {}
@@ -114,7 +119,7 @@ fn main() {
     for mut node in ast {
         node = optimize_node(node, &mut optimize);
         if let AstNode::LabelDefine { name, .. } = node {
-            let mut address_table = LABEL_ADDRESSES.lock().unwrap();
+            let mut address_table = LABEL_ADDRESSES.lock().expect(POISONED_MUTEX_ERR);
             if address_table.get(&name).is_some() {
                 // this label already exists, print an error and exit
                 println!("Label \"{}\" was defined more than once!", name);
@@ -123,7 +128,7 @@ fn main() {
             address_table.insert(name.clone(), (current_address, false));
             std::mem::drop(address_table);
         } else if let AstNode::Constant { name, address } = node {
-            let mut address_table = LABEL_ADDRESSES.lock().unwrap();
+            let mut address_table = LABEL_ADDRESSES.lock().expect(POISONED_MUTEX_ERR);
             address_table.insert(name.clone(), (address, true));
             std::mem::drop(address_table);
         } else if let AstNode::Origin(origin_address) = node {
@@ -138,7 +143,7 @@ fn main() {
             let size = match size {
                 SizeOrLabelName::Size(size) => size,
                 SizeOrLabelName::Label(name) => {
-                    let address_table = LABEL_ADDRESSES.lock().unwrap();
+                    let address_table = LABEL_ADDRESSES.lock().expect(POISONED_MUTEX_ERR);
                     address_table
                         .get(&name)
                         .expect(&format!("Label not found: {}", name))
@@ -152,7 +157,7 @@ fn main() {
             instructions.push(binary_vec.into());
         } else if let AstNode::Optimize(_) = node {
         } else {
-            let instruction = assemble_node(node);
+            let instruction = assemble_node(node)?;
             instruction.set_address(current_address);
             current_address += instruction.borrow().len() as u32;
             instructions.push(instruction);
@@ -160,8 +165,8 @@ fn main() {
     }
 
     println!("Performing label backpatching...");
-    let table = LABEL_TARGETS.lock().unwrap();
-    let address_table = LABEL_ADDRESSES.lock().unwrap();
+    let table = LABEL_TARGETS.lock().expect(POISONED_MUTEX_ERR);
+    let address_table = LABEL_ADDRESSES.lock().expect(POISONED_MUTEX_ERR);
 
     let address_file = format_address_table(&address_table);
     println!("{}", address_file);
@@ -213,7 +218,7 @@ fn main() {
         let reloc_ptr_bytes = u32::to_le_bytes(binary.len() as u32);
 
         // write the reloc addresses to the end of the binary
-        let reloc_table = &*RELOC_ADDRESSES.lock().unwrap();
+        let reloc_table = &*RELOC_ADDRESSES.lock().expect(POISONED_MUTEX_ERR);
         let mut reloc_table_size = 0;
         for address in reloc_table {
             let address_bytes = u32::to_le_bytes(*address);
@@ -242,29 +247,31 @@ fn main() {
         binary.len() / 1048576
     );
 
-    let mut output_file = File::create(output_file_name).unwrap();
-    output_file.write_all(&binary).unwrap();
+    let mut output_file = File::create(output_file_name)?;
+    output_file.write_all(&binary)?;
+
+    Ok(())
 }
 
-fn assemble_node(node: AstNode) -> AssembledInstruction {
+fn assemble_node(node: AstNode) -> anyhow::Result<AssembledInstruction> {
     // if this is data, don't interpret it as an instruction
     match node {
         AstNode::DataByte(byte) => {
-            return vec![byte].into();
+            return Ok(vec![byte].into());
         }
         AstNode::DataHalf(half) => {
-            return half.to_le_bytes().into();
+            return Ok(half.to_le_bytes().into());
         }
         AstNode::DataWord(word) => {
-            return word.to_le_bytes().into();
+            return Ok(word.to_le_bytes().into());
         }
         AstNode::DataStr(string) => {
-            return string.as_bytes().into();
+            return Ok(string.as_bytes().into());
         }
         AstNode::DataStrZero(string) => {
             let mut bytes: Vec<u8> = string.as_bytes().into();
             bytes.push(0);
-            return bytes.into();
+            return Ok(bytes.into());
         }
         AstNode::LabelOperand {
             name,
@@ -274,8 +281,8 @@ fn assemble_node(node: AstNode) -> AssembledInstruction {
             // label is used on its own, not as an operand:
             // LabelOperand was previously only checked as part of operands
             let instruction = AssembledInstruction::new();
-            immediate::generate_backpatch(&name, size, &instruction, is_relative);
-            return instruction;
+            immediate::generate_backpatch(&name, size, &instruction, is_relative)?;
+            return Ok(instruction);
         }
         _ => {}
     }
@@ -293,9 +300,9 @@ fn assemble_node(node: AstNode) -> AssembledInstruction {
         &node,
         &instruction,
         condition_source_destination & 0x80 != 0,
-    );
+    )?;
 
-    instruction
+    Ok(instruction)
 }
 
 // fn node_to_vec(node: AstNode) -> Vec<u8> {
@@ -312,7 +319,7 @@ fn operand_to_immediate_value(
     instruction: &AssembledInstruction,
     node: &AstNode,
     pointer_offset: bool,
-) {
+) -> anyhow::Result<()> {
     let mut vec = instruction.borrow_mut();
     match *node {
         AstNode::Register(register) => vec.push(register),
@@ -340,14 +347,14 @@ fn operand_to_immediate_value(
             is_relative,
         } => {
             std::mem::drop(vec);
-            immediate::generate_backpatch(name, size, instruction, is_relative);
+            immediate::generate_backpatch(name, size, instruction, is_relative)?;
         }
         AstNode::LabelOperandPointer {
             ref name,
             is_relative,
         } => {
             std::mem::drop(vec);
-            immediate::generate_backpatch(name, Size::Word, instruction, is_relative);
+            immediate::generate_backpatch(name, Size::Word, instruction, is_relative)?;
         }
 
         _ => panic!(
@@ -355,27 +362,29 @@ fn operand_to_immediate_value(
             node
         ),
     }
+
+    Ok(())
 }
 
 fn node_to_immediate_values(
     node: &AstNode,
     instruction: &AssembledInstruction,
     pointer_offset: bool,
-) {
+) -> anyhow::Result<()> {
     {
         match node {
             AstNode::OperationZero { .. } => {}
 
             AstNode::OperationOne(OperationOne { operand, .. }) => {
-                operand_to_immediate_value(instruction, operand.as_ref(), pointer_offset)
+                operand_to_immediate_value(instruction, operand.as_ref(), pointer_offset)?
             }
 
             AstNode::OperationIncDec(OperationIncDec { lhs, .. }) => {
-                operand_to_immediate_value(instruction, lhs.as_ref(), pointer_offset)
+                operand_to_immediate_value(instruction, lhs.as_ref(), pointer_offset)?
             }
 
             AstNode::OperationTwo(OperationTwo { rhs, .. }) => {
-                operand_to_immediate_value(instruction, rhs.as_ref(), pointer_offset)
+                operand_to_immediate_value(instruction, rhs.as_ref(), pointer_offset)?
             }
 
             _ => panic!(
@@ -391,7 +400,7 @@ fn node_to_immediate_values(
         AstNode::OperationIncDec { .. } => {}
 
         AstNode::OperationTwo(OperationTwo { lhs, .. }) => {
-            operand_to_immediate_value(instruction, lhs.as_ref(), pointer_offset)
+            operand_to_immediate_value(instruction, lhs.as_ref(), pointer_offset)?
         }
 
         _ => panic!(
@@ -399,6 +408,8 @@ fn node_to_immediate_values(
             node
         ),
     };
+
+    Ok(())
 }
 
 fn node_value(node: &AstNode) -> Option<u32> {

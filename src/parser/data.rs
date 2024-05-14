@@ -1,4 +1,4 @@
-use crate::{instr::Size, SizeOrLabelName, CURRENT_SIZE};
+use crate::{instr::Size, SizeOrLabelName, CURRENT_SIZE, POISONED_MUTEX_ERR};
 
 use super::{
     immediate::{immediate_to_astnode, parse_immediate},
@@ -14,7 +14,10 @@ fn parse_register(pair: pest::iterators::Pair<Rule>) -> u8 {
     } else if register_num_pair.as_str() == "fp" {
         34
     } else {
-        register_num_pair.as_str().parse::<u8>().unwrap()
+        register_num_pair
+            .as_str()
+            .parse::<u8>()
+            .expect("register number not of type u8")
     };
     if register_num > 34 {
         panic!("register number out of range");
@@ -25,7 +28,7 @@ fn parse_register(pair: pest::iterators::Pair<Rule>) -> u8 {
 pub fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) -> AstNode {
     //println!("parse_operand: {:#?}", pair); // debug
     // dbg!(&pair);
-    let size = *CURRENT_SIZE.lock().unwrap();
+    let size = *CURRENT_SIZE.lock().expect(POISONED_MUTEX_ERR);
     let pointer_offset = if is_pointer {
         // skip past the operand_value_ptr pair and look at its operand_value rule
         let mut pairs = pair.into_inner();
@@ -89,7 +92,7 @@ pub fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) ->
 }
 
 pub fn parse_constant(pairs: pest::iterators::Pairs<Rule>) -> AstNode {
-    *CURRENT_SIZE.lock().unwrap() = Size::Word;
+    *CURRENT_SIZE.lock().expect(POISONED_MUTEX_ERR) = Size::Word;
     let mut pairs = pairs;
     let constant_name = pairs.next().unwrap().into_inner().next().unwrap().as_str();
     let operand_pair = pairs.next().unwrap();
@@ -107,7 +110,7 @@ pub fn parse_constant(pairs: pest::iterators::Pairs<Rule>) -> AstNode {
 
 pub fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("{:#?}", pair);
-    *CURRENT_SIZE.lock().unwrap() = Size::Word;
+    *CURRENT_SIZE.lock().expect(POISONED_MUTEX_ERR) = Size::Word;
     match pair.as_rule() {
         Rule::data_byte => match parse_operand(pair.into_inner().next().unwrap(), false) {
             AstNode::Immediate32(half) => AstNode::DataByte(half as u8),

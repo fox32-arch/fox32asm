@@ -7,7 +7,7 @@ use crate::{
         parse_instruction_zero, Condition, LabelKind, OperationIncDec, OperationOne, OperationTwo,
         OperationZero, Size,
     },
-    SizeOrLabelName, CURRENT_CONDITION, CURRENT_SIZE,
+    SizeOrLabelName, CURRENT_CONDITION, CURRENT_SIZE, POISONED_MUTEX_ERR,
 };
 
 use self::{
@@ -79,7 +79,7 @@ pub enum AstNode {
 fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("parse_instruction: {:#?}", pair); // debug
     let mut size = Size::Word;
-    let condition = *CURRENT_CONDITION.lock().unwrap();
+    let condition = *CURRENT_CONDITION.lock().expect(POISONED_MUTEX_ERR);
     match pair.as_rule() {
         Rule::instruction_conditional => {
             let mut inner_pair = pair.into_inner();
@@ -91,14 +91,14 @@ fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
                             size = parse_size(&inner_pair.next().unwrap());
                         }
                     }
-                    *CURRENT_SIZE.lock().unwrap() = size;
+                    *CURRENT_SIZE.lock().expect(POISONED_MUTEX_ERR) = size;
                     parse_instruction_zero(instruction_conditional_pair, size, condition)
                 }
                 Rule::instruction_one => {
                     if inner_pair.peek().unwrap().as_rule() == Rule::size {
                         size = parse_size(&inner_pair.next().unwrap());
                     }
-                    *CURRENT_SIZE.lock().unwrap() = size;
+                    *CURRENT_SIZE.lock().expect(POISONED_MUTEX_ERR) = size;
                     let operand = inner_pair.next().unwrap();
                     let operand_ast = build_ast_from_expression(operand);
                     parse_instruction_one(
@@ -112,7 +112,7 @@ fn parse_instruction(pair: pest::iterators::Pair<Rule>) -> AstNode {
                     if inner_pair.peek().unwrap().as_rule() == Rule::size {
                         size = parse_size(&inner_pair.next().unwrap());
                     }
-                    *CURRENT_SIZE.lock().unwrap() = size;
+                    *CURRENT_SIZE.lock().expect(POISONED_MUTEX_ERR) = size;
                     let lhs = inner_pair.next().unwrap();
                     let lhs_ast = build_ast_from_expression(lhs);
                     let rhs_ast = if inner_pair.peek().is_some() {
@@ -157,7 +157,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("{:#?}\n\n", pair); // debug
     let pair_rule = pair.as_rule();
     let mut inner_pair = pair.into_inner();
-    *CURRENT_CONDITION.lock().unwrap() = Condition::Always;
+    *CURRENT_CONDITION.lock().expect(POISONED_MUTEX_ERR) = Condition::Always;
     let mut is_pointer = false;
     match inner_pair.peek().unwrap().as_rule() {
         Rule::condition => {
