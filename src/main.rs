@@ -97,17 +97,14 @@ fn main() -> anyhow::Result<()> {
         .parse()
         .assemble()?
         .batchpatch_labels()
-        .build_binary(BinaryType::Fxf)?;
-
-    Ok(())
+        .build_binary(match output_file_name.split_once('.') {
+            Some((_file_name, ext)) => {
+                if ext == "fxf" {
+                    BinaryType::Fxf
+                } else {
+                    BinaryType::Flat
+                }
+            }
+            None => BinaryType::Flat,
+        })
 }
-
-// fn node_to_vec(node: AstNode) -> Vec<u8> {
-//     let mut vec = Vec::<u8>::new();
-//     let instruction = instruction_to_byte(&node);
-//     let condition_source_destination = condition_source_destination_to_byte(&node);
-//     vec.push(condition_source_destination);
-//     vec.push(instruction);
-//     node_to_immediate_values(&node, &mut vec);
-//     vec
-// }
