@@ -1,4 +1,5 @@
 use pest::{error::Error, Parser as _};
+use pest_derive::Parser;
 
 use crate::{
     include::include_binary_file,
