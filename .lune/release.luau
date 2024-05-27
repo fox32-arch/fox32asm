@@ -56,8 +56,6 @@ function main(): number
             fileName
         }
     end
-
-    -- TODO: Use tar on windows, zip on linux
     
     execute(
         `{process.cwd}/target/release`,

@@ -42,10 +42,10 @@ jobs:
                  with:
                    tool: lune
 
-               - name: Create release
+               - name: Build release
                  run: just build-release
 
-               - name: Build package
+               - name: Export package
                  id: export
                  run: echo "zip=$(echo ./target/release/fox32asm-*.zip)" >> "$GITHUB_OUTPUT"
 
