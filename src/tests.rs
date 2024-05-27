@@ -1,6 +1,21 @@
-use std::fs;
+use std::{
+    collections::{BTreeMap, HashMap},
+    fs,
+    path::PathBuf,
+};
 
-use crate::{Assembler, BinaryType};
+use crate::{
+    instr::{Condition, Size},
+    parser::backpatch::BackpatchTarget,
+    Assembler, BinaryType, CURRENT_CONDITION, CURRENT_SIZE, LABEL_ADDRESSES, LABEL_TARGETS,
+    RELOC_ADDRESSES, SOURCE_PATH,
+};
+
+macro_rules! reset_statics {
+    ($($static:expr => $type:ty,)*) => {
+        $(*$static.lock().unwrap() = <$type>::default();)*
+    };
+}
 
 macro_rules! create_tests {
     ($($name:ident => $path:literal,)*) => {
@@ -39,10 +54,21 @@ macro_rules! create_tests {
 
                 assembler
                     .parse_includes()?
-                    .parse()
+                    .parse()?
                     .assemble()?
                     .batchpatch_labels()
-                    .build_binary(BinaryType::Fxf)
+                    .build_binary(BinaryType::Fxf)?;
+
+                reset_statics! {
+                    SOURCE_PATH => PathBuf,
+                    CURRENT_SIZE => Size,
+                    CURRENT_CONDITION => Condition,
+                    LABEL_TARGETS => BTreeMap<String, Vec<BackpatchTarget>>,
+                    LABEL_ADDRESSES => HashMap<String, (u32, bool)>,
+                    RELOC_ADDRESSES => Vec<u32>,
+                };
+
+                Ok(())
             }
         )*
     };
@@ -51,4 +77,8 @@ macro_rules! create_tests {
 create_tests! {
     cputest => "asm-test/cputest/cputest-bin",
     tcc => "asm-test/boot/tcc",
+    allocate => "asm-test/demos/allocate/allocate",
+    hello_world => "asm-test/demos/hello_world/hello",
+    multitasking => "asm-test/demos/multitasking/multitsk",
+    robotfindskitten => "asm-test/demos/robotfindskitten/rfk",
 }

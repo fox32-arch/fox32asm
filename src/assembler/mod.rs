@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write as _, path::PathBuf, process};
+use std::{fs::File, io::Write as _, path::PathBuf};
 
 use crate::{
     include::include_text_file,
@@ -11,6 +11,7 @@ use crate::{
 
 pub mod node;
 
+use anyhow::anyhow;
 use node::{assemble_node, optimize_node};
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -68,17 +69,16 @@ impl Assembler {
         Ok(self)
     }
 
-    pub fn parse(&mut self) -> &mut Self {
+    pub fn parse(&mut self) -> anyhow::Result<&mut Self> {
         println!("Parsing file...");
         self.ast = match parser::parse(&self.input.0) {
             Ok(x) => x,
             Err(x) => {
-                println!("{:#?}", x);
-                process::exit(1);
+                return Err(anyhow!("{:#?}", x));
             }
         };
 
-        self
+        Ok(self)
     }
 
     pub fn assemble(&mut self) -> anyhow::Result<&mut Self> {
@@ -93,8 +93,7 @@ impl Assembler {
                 let mut address_table = LABEL_ADDRESSES.lock().expect(POISONED_MUTEX_ERR);
                 if address_table.get(&name).is_some() {
                     // this label already exists, print an error and exit
-                    println!("Label \"{}\" was defined more than once!", name);
-                    process::exit(1);
+                    return Err(anyhow!("Label \"{}\" was defined more than once!", name));
                 }
                 address_table.insert(name.clone(), (current_address, false));
                 std::mem::drop(address_table);

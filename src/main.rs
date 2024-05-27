@@ -101,7 +101,7 @@ fn main() -> anyhow::Result<()> {
 
     assembler
         .parse_includes()?
-        .parse()
+        .parse()?
         .assemble()?
         .batchpatch_labels()
         .build_binary(match output_file_name.split_once('.') {

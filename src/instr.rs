@@ -77,15 +77,17 @@ pub enum InstructionTwo {
     Out,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Default)]
 pub enum Size {
     Byte,
     Half,
+    #[default]
     Word,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Default)]
 pub enum Condition {
+    #[default]
     Always,
     Zero,
     NotZero,
