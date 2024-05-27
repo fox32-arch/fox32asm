@@ -36,7 +36,13 @@ function main(): number
 
     local cargoToml: CargoToml = serde.decode("toml", fs.readFile("Cargo.toml"))
     local fileExt: "exe" | "" = if process.os == "windows" then "exe" else ""
-    execute(`{process.cwd}/target/release`, "zip", `{cargoToml.package.name}-{cargoToml.package.version}-{process.arch}-{process.os}.zip`, `fox32asm{fileExt}`)
+    execute(
+        `{process.cwd}/target/release`, 
+        
+        "zip", 
+        `{cargoToml.package.name}-{cargoToml.package.version}-{process.arch}-{process.os}.zip`, 
+        `fox32asm{fileExt}`
+    )
     
     return 0
 end
