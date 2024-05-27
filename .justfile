@@ -49,7 +49,7 @@ analyze:
 # Build ZIP releases in GitHub actions
 [no-exit-message]
 [private]
-create-release:
+build-release:
 	#!/usr/bin/env bash
 	set -euo pipefail
 	lune run release

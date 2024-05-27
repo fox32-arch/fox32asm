@@ -30,11 +30,11 @@ jobs:
                    tool: lune
 
                - name: Create release
-                 run: just create-release
+                 run: just build-release
 
                - name: Build package
                  id: export
-                 run: echo "zip=$(cat ./target/release/fox32asm-*-x86_64-linux.zip)" >> "$GITHUB_OUTPUT"
+                 run: echo "zip=$(echo ./target/release/fox32asm-*.zip)" >> "$GITHUB_OUTPUT"
 
                - name: Publish artifacts
                  uses: ncipollo/release-action@v1
