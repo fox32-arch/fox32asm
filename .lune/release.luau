@@ -32,7 +32,7 @@ local function execute(dir: string, command: string, ...): ()
 end
 
 function main(): number
-    execute(process.cwd, "/bin/just", "build", "--release")
+    execute(process.cwd, "just", "build", "--release")
 
     local cargoToml: CargoToml = serde.decode("toml", fs.readFile("Cargo.toml"))
     local fileExt: "exe" | "" = if process.os == "windows" then "exe" else ""

@@ -9,7 +9,7 @@ default:
 	#!/usr/bin/env bash
 	set -euo pipefail
 	printf "Current directory:\n    {{CWD}}\n"
-	/bin/just --list
+	just --list
 
 # Builds the assembler binary
 [no-exit-message]
