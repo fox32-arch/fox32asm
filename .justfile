@@ -27,10 +27,10 @@ test *ARGS:
 
 # Apply Rustfmt to the code
 [no-exit-message]
-fmt:
+fmt *ARGS:
 	#!/usr/bin/env bash
 	set -euo pipefail
-	cargo fmt
+	cargo fmt {{ARGS}}
 
 # Check Rustfmt for the code
 [no-exit-message]
