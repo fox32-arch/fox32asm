@@ -16,6 +16,15 @@ jobs:
 							 - name: Install Rust
 								 uses: dtolnay/rust-toolchain@stable
 
+							 - name: Install ZIP
+							 	 run:
+								 	sudo apt-get install zip -y
+
+							 - name: Install tooling
+							   uses: taiki-e/install-action@v2
+							   with:
+								 	tool: just,lune
+
 							 - name: Create release
 								 run: just create-release
 
