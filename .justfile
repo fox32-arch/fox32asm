@@ -39,13 +39,6 @@ lint *ARGS:
 	set -euo pipefail
 	cargo clippy {{ARGS}}
 
-# Run lint workflow using Clippy
-[no-exit-message]
-analyze:
-	#!/usr/bin/env bash
-	set -euo pipefail
-	cargo clippy
-
 # Build ZIP releases in GitHub actions
 [no-exit-message]
 [private]
