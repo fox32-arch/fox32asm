@@ -50,4 +50,5 @@ macro_rules! create_tests {
 
 create_tests! {
     cputest => "asm-test/cputest/cputest-bin",
+    tcc => "asm-test/boot/tcc",
 }
