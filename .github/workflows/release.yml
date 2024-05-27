@@ -46,6 +46,7 @@ jobs:
                  run: just build-release
 
                - name: Export package
+                 shell: bash
                  id: export
                  run: echo "zip=$(echo ./target/release/fox32asm-*.zip)" >> "$GITHUB_OUTPUT"
 
