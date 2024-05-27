@@ -13,11 +13,11 @@ jobs:
               include:
                 - name: Windows x86_64
                   runner-os: windows-latest
-                  artifact-name: lune-windows-x86_64
+                  artifact-name: fox32asm-windows-x86_64
 
                 - name: Linux x86_64
                   runner-os: ubuntu-latest
-                  artifact-name: lune-linux-x86_64
+                  artifact-name: fox32asm-linux-x86_64
 
           name: Build - ${{ matrix.name }}
           runs-on: ${{ matrix.runner-os }}
@@ -29,6 +29,7 @@ jobs:
                  uses: dtolnay/rust-toolchain@stable
 
                - name: Install ZIP
+                 if: matrix.runner-os == 'ubuntu-latest'
                  run: sudo apt-get install zip -y
 
                - name: Install Just

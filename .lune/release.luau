@@ -36,12 +36,32 @@ function main(): number
 
     local cargoToml: CargoToml = serde.decode("toml", fs.readFile("Cargo.toml"))
     local fileExt: "exe" | "" = if process.os == "windows" then "exe" else ""
+    local zipName = `{cargoToml.package.name}-{cargoToml.package.version}-{process.arch}-{process.os}.zip`
+    local fileName = `fox32asm{fileExt}`
+    local command = {}
+
+    if process.os == "windows" then
+        command = {
+            "tar.exe",
+            "-a",
+            "-c",
+            "-f",
+            zipName,
+            fileName
+        }
+    elseif process.os == "linux" then
+        command = {
+            "zip", 
+            zipName, 
+            fileName
+        }
+    end
+
+    -- TODO: Use tar on windows, zip on linux
+    
     execute(
-        `{process.cwd}/target/release`, 
-        
-        "zip", 
-        `{cargoToml.package.name}-{cargoToml.package.version}-{process.arch}-{process.os}.zip`, 
-        `fox32asm{fileExt}`
+        `{process.cwd}/target/release`,
+        table.unpack(command)
     )
     
     return 0
