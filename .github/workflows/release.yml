@@ -19,10 +19,15 @@ jobs:
                - name: Install ZIP
                  run: sudo apt-get install zip -y
 
-               - name: Install tooling
-                 uses: taiki-e/install-action@v2
+               - name: Install Just
+                 uses: taiki-e/cache-cargo-install-action@v2
                  with:
-                   tool: just,lune
+                   tool: just
+
+               - name: Install Lune
+                 uses: taiki-e/cache-cargo-install-action@v2
+                 with:
+                   tool: lune
 
                - name: Create release
                  run: just create-release
