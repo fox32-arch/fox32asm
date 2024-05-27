@@ -54,21 +54,21 @@ jobs:
                   name: ${{ matrix.artifact-name }}
                   path: "${{ steps.export.outputs.zip }}"
 
-          create-release:
-             name: Create GitHub Release
-             runs-on: ubuntu-latest
-             needs: ["build"]
-             steps:
-               - name: Download artifacts
-                 uses: actions/download-artifact@v4
-                 with:
-                   path: ./build
+     create-release:
+        name: Create GitHub Release
+        runs-on: ubuntu-latest
+        needs: ["build"]
+        steps:
+          - name: Download artifacts
+            uses: actions/download-artifact@v4
+            with:
+              path: ./build
 
-               - name: Publish release
-                 uses: softprops/action-gh-release@v2
-                 env:
-                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                 with:
-                   fail_on_unmatched_files: true
-                   files: ./build/*.zip
-                   draft: true
+          - name: Publish release
+            uses: softprops/action-gh-release@v2
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            with:
+              fail_on_unmatched_files: true
+              files: ./build/*.zip
+              draft: true
