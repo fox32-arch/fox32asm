@@ -17,8 +17,7 @@ jobs:
                  uses: dtolnay/rust-toolchain@stable
 
                - name: Install ZIP
-                  run:
-                   sudo apt-get install zip -y
+                 run: sudo apt-get install zip -y
 
                - name: Install tooling
                  uses: taiki-e/install-action@v2
