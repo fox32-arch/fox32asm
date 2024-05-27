@@ -1,39 +1,39 @@
 name: Publish Release
 
 on:
-		 push:
-					tags:
-							 - "**"
-		 workflow_dispatch:
+     push:
+          tags:
+               - "**"
+     workflow_dispatch:
 jobs:
-		 publish:
-					name: Publish
-					runs-on: ubuntu-latest
-					steps:
-							 - name: Checkout repository
-								 uses: actions/checkout@v4
+     publish:
+          name: Publish
+          runs-on: ubuntu-latest
+          steps:
+               - name: Checkout repository
+                 uses: actions/checkout@v4
 
-							 - name: Install Rust
-								 uses: dtolnay/rust-toolchain@stable
+               - name: Install Rust
+                 uses: dtolnay/rust-toolchain@stable
 
-							 - name: Install ZIP
-							 	 run:
-								 	sudo apt-get install zip -y
+               - name: Install ZIP
+                  run:
+                   sudo apt-get install zip -y
 
-							 - name: Install tooling
-							   uses: taiki-e/install-action@v2
-							   with:
-								 	tool: just,lune
+               - name: Install tooling
+                 uses: taiki-e/install-action@v2
+                 with:
+                   tool: just,lune
 
-							 - name: Create release
-								 run: just create-release
+               - name: Create release
+                 run: just create-release
 
-							 - name: Build package
-								 id: export
-								 run: echo "zip=$(cat ./target/release/fox32asm-*-x86_64-linux.zip)" >> "$GITHUB_OUTPUT"
+               - name: Build package
+                 id: export
+                 run: echo "zip=$(cat ./target/release/fox32asm-*-x86_64-linux.zip)" >> "$GITHUB_OUTPUT"
 
-							 - name: Publish artifacts
-								 uses: ncipollo/release-action@v1
-								 with:
-											artifacts: "${{ steps.export.outputs.zip }}"
-											draft: true
+               - name: Publish artifacts
+                 uses: ncipollo/release-action@v1
+                 with:
+                      artifacts: "${{ steps.export.outputs.zip }}"
+                      draft: true
