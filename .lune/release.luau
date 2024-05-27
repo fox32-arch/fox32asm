@@ -42,10 +42,9 @@ function main(): number
 
     if process.os == "windows" then
         command = {
-            "tar.exe",
-            "-a",
-            "-c",
-            "-f",
+            "7z.exe",
+            "a",
+            "-tzip",
             zipName,
             fileName
         }
