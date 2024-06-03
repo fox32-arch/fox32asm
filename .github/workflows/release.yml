@@ -1,0 +1,77 @@
+name: Publish Release
+
+on:
+     push:
+          tags:
+               - "**"
+     workflow_dispatch:
+jobs:
+     build:
+          strategy:
+            fail-fast: false
+            matrix:
+              include:
+                - name: Windows x86_64
+                  runner-os: windows-latest
+                  artifact-name: fox32asm-windows-x86_64
+
+                - name: Linux x86_64
+                  runner-os: ubuntu-latest
+                  artifact-name: fox32asm-linux-x86_64
+
+          name: Build - ${{ matrix.name }}
+          runs-on: ${{ matrix.runner-os }}
+          steps:
+               - name: Checkout repository
+                 uses: actions/checkout@v4
+
+               - name: Install Rust
+                 uses: dtolnay/rust-toolchain@stable
+
+               - name: Install ZIP
+                 if: matrix.runner-os == 'ubuntu-latest'
+                 run: sudo apt-get install zip -y
+
+               - name: Install Just
+                 uses: taiki-e/cache-cargo-install-action@v2
+                 with:
+                   tool: just
+
+               - name: Install Lune
+                 uses: taiki-e/cache-cargo-install-action@v2
+                 with:
+                   tool: lune
+
+               - name: Build release
+                 run: just build-release
+
+               - name: Export package
+                 shell: bash
+                 id: export
+                 run: echo "zip=$(echo ./target/release/fox32asm-*.zip)" >> "$GITHUB_OUTPUT"
+
+               - name: Upload artifact
+                 uses: actions/upload-artifact@v4
+                 with:
+                  name: ${{ matrix.artifact-name }}
+                  path: "${{ steps.export.outputs.zip }}"
+
+     create-release:
+        name: Create GitHub Release
+        runs-on: ubuntu-latest
+        needs: ["build"]
+        steps:
+          - name: Download artifacts
+            uses: actions/download-artifact@v4
+            with:
+              merge-multiple: true
+              path: ./build
+
+          - name: Publish release
+            uses: softprops/action-gh-release@v2
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            with:
+              fail_on_unmatched_files: true
+              files: ./build/*.zip
+              draft: true
