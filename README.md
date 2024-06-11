@@ -4,9 +4,7 @@
 
 ## Getting Started
 
-Stable releases are available on the [Releases page](https://github.com/fox32-arch/fox32asm/releases).
-
-Prebuilt binaries of the latest commit are also available on the [GitHub Actions page](https://github.com/fox32-arch/fox32asm/actions).
+Downloads are available on the [Releases page](https://github.com/fox32-arch/fox32asm/releases).
 
 ### Usage
 
