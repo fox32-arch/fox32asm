@@ -41,7 +41,7 @@ jobs:
                - name: Install Lune
                  uses: taiki-e/cache-cargo-install-action@v2
                  with:
-                   tool: lune
+                   tool: lune@0.8.4
 
                - name: Build release
                  run: just build-release
