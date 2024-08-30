@@ -104,14 +104,5 @@ fn main() -> anyhow::Result<()> {
         .parse()?
         .assemble()?
         .batchpatch_labels()
-        .build_binary(match output_file_name.split_once('.') {
-            Some((_file_name, ext)) => {
-                if ext == "fxf" {
-                    BinaryType::Fxf
-                } else {
-                    BinaryType::Flat
-                }
-            }
-            None => BinaryType::Flat,
-        })
+        .build_binary(if output_file_name.ends_with(".fxf") { BinaryType::Fxf } else { BinaryType::Flat })
 }
