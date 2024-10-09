@@ -104,5 +104,9 @@ fn main() -> anyhow::Result<()> {
         .parse()?
         .assemble()?
         .batchpatch_labels()
-        .build_binary(if output_file_name.ends_with(".fxf") { BinaryType::Fxf } else { BinaryType::Flat })
+        .build_binary(if output_file_name.ends_with(".fxf") {
+            BinaryType::Fxf
+        } else {
+            BinaryType::Flat
+        })
 }
