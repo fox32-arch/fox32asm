@@ -5,8 +5,8 @@ use crate::{
     instr::AssembledInstruction,
     parser::{self, backpatch::perform_backpatching, AstNode},
     util::format_address_table,
-    SizeOrLabelName, FXF_RELOC_PTR, FXF_RELOC_SIZE, LABEL_ADDRESSES, LABEL_TARGETS,
-    POISONED_MUTEX_ERR, RELOC_ADDRESSES, SOURCE_PATH,
+    SizeOrLabelName, FXF_RELOC_PTR, FXF_RELOC_SIZE, LABEL_ADDRESSES, LABEL_TARGETS, LBR_JUMP_PTR,
+    LBR_JUMP_SIZE, POISONED_MUTEX_ERR, RELOC_ADDRESSES, SOURCE_PATH,
 };
 
 pub mod node;
@@ -17,6 +17,7 @@ use node::{assemble_node, optimize_node};
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum BinaryType {
     Fxf,
+    Lbr,
     #[default]
     Flat,
 }
@@ -161,15 +162,24 @@ impl Assembler {
 
     pub fn build_binary(&mut self, binary_type: BinaryType) -> anyhow::Result<()> {
         let is_fxf = binary_type == BinaryType::Fxf;
+        let is_lbr = binary_type == BinaryType::Lbr;
         let mut binary = Vec::new();
 
-        // if we're generating a FXF binary, write out the header first
-        if is_fxf {
-            // magic bytes and version
-            binary.push(b'F');
-            binary.push(b'X');
-            binary.push(b'F');
-            binary.push(0);
+        // if we're generating a FXF or LBR binary, write out the header first
+        if is_fxf || is_lbr {
+            if is_fxf {
+                // magic bytes and version
+                binary.push(b'F');
+                binary.push(b'X');
+                binary.push(b'F');
+                binary.push(0);
+            } else if is_lbr {
+                // magic bytes and version
+                binary.push(b'L');
+                binary.push(b'B');
+                binary.push(b'R');
+                binary.push(0);
+            }
 
             let mut code_size = 0;
             for instruction in &self.instructions {
@@ -179,20 +189,31 @@ impl Assembler {
             // code size
             binary.extend_from_slice(&u32::to_le_bytes(code_size as u32));
             // code pointer
-            binary.extend_from_slice(&u32::to_le_bytes(0x14)); // code starts after the header
+            if is_lbr {
+                binary.extend_from_slice(&u32::to_le_bytes(0x1C)); // code starts after the header
+            } else {
+                binary.extend_from_slice(&u32::to_le_bytes(0x14)); // code starts after the header
+            }
 
             // reloc table size
             binary.extend_from_slice(&u32::to_le_bytes(0));
             // reloc table pointer
             binary.extend_from_slice(&u32::to_le_bytes(0));
+
+            if is_lbr {
+                // jump table size
+                binary.extend_from_slice(&u32::to_le_bytes(0));
+                // jump table pointer
+                binary.extend_from_slice(&u32::to_le_bytes(0));
+            }
         }
 
         for instruction in &self.instructions {
             binary.extend_from_slice(&(instruction.borrow())[..]);
         }
 
-        // if we're generating a FXF binary, write the reloc table
-        if is_fxf {
+        // if we're generating a FXF or LBR binary, write the reloc table
+        if is_fxf || is_lbr {
             // first get the current pointer to where we are in the binary
             let reloc_ptr_bytes = u32::to_le_bytes(binary.len() as u32);
 
@@ -205,18 +226,56 @@ impl Assembler {
                 reloc_table_size += 4;
             }
 
-            // write the reloc size to the FXF header
+            // write the reloc size to the header
             let reloc_table_size_bytes = u32::to_le_bytes(reloc_table_size);
             binary[FXF_RELOC_SIZE] = reloc_table_size_bytes[0];
             binary[FXF_RELOC_SIZE + 1] = reloc_table_size_bytes[1];
             binary[FXF_RELOC_SIZE + 2] = reloc_table_size_bytes[2];
             binary[FXF_RELOC_SIZE + 3] = reloc_table_size_bytes[3];
 
-            // write the reloc pointer to the FXF header
+            // write the reloc pointer to the header
             binary[FXF_RELOC_PTR] = reloc_ptr_bytes[0];
             binary[FXF_RELOC_PTR + 1] = reloc_ptr_bytes[1];
             binary[FXF_RELOC_PTR + 2] = reloc_ptr_bytes[2];
             binary[FXF_RELOC_PTR + 3] = reloc_ptr_bytes[3];
+
+            if is_lbr {
+                // write the jump table size to the header
+                let mut jump_table_size_bytes = u32::to_le_bytes(0);
+                const HEADER_SIZE: u32 = 0x1C;
+                const HEADER_SIZE_USIZE: usize = HEADER_SIZE as usize;
+                for i in (HEADER_SIZE_USIZE..binary.len() + HEADER_SIZE_USIZE).step_by(4) {
+                    let word = u32::from_le_bytes(
+                        binary[i..i + 4]
+                            .try_into()
+                            .expect("Couldn't determine size of library jump table!"),
+                    );
+                    if word == 0 {
+                        jump_table_size_bytes = u32::to_le_bytes(i as u32 - HEADER_SIZE);
+                        break;
+                    }
+                }
+                binary[LBR_JUMP_SIZE] = jump_table_size_bytes[0];
+                binary[LBR_JUMP_SIZE + 1] = jump_table_size_bytes[1];
+                binary[LBR_JUMP_SIZE + 2] = jump_table_size_bytes[2];
+                binary[LBR_JUMP_SIZE + 3] = jump_table_size_bytes[3];
+
+                // write the jump table pointer to the header
+                let jump_table_ptr_bytes = u32::to_le_bytes(0x14); // jump table starts at code
+                binary[LBR_JUMP_PTR] = jump_table_ptr_bytes[0];
+                binary[LBR_JUMP_PTR + 1] = jump_table_ptr_bytes[1];
+                binary[LBR_JUMP_PTR + 2] = jump_table_ptr_bytes[2];
+                binary[LBR_JUMP_PTR + 3] = jump_table_ptr_bytes[3];
+
+                let jump_table_size = u32::from_le_bytes(jump_table_size_bytes);
+                println!(
+                    "Library jump table size: {} entries = {} bytes = {:.2} KiB = {:.2} MiB",
+                    jump_table_size / 4,
+                    jump_table_size,
+                    jump_table_size / 1024,
+                    jump_table_size / 1048576
+                );
+            }
         }
 
         println!(

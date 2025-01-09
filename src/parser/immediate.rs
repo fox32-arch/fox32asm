@@ -135,7 +135,7 @@ pub fn parse_immediate(pair: pest::iterators::Pair<Rule>) -> u32 {
             body_char_str.chars().next().unwrap() as u8 as u32
         }
         _ => {
-            panic!()
+            panic!("Invalid immediate")
         }
     }
 }

@@ -56,8 +56,7 @@ operand = {
 }
 operand_value_ptr = {
     register ~ "+" ~ operand_value |
-    operand_value                  
-    
+    operand_value
 }
 operand_value = {
     register       |

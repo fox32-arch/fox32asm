@@ -39,6 +39,8 @@ lazy_static! {
 //const FXF_CODE_PTR:    usize = 0x00000008;
 const FXF_RELOC_SIZE: usize = 0x0000000C;
 const FXF_RELOC_PTR: usize = 0x00000010;
+const LBR_JUMP_SIZE: usize = 0x00000014;
+const LBR_JUMP_PTR: usize = 0x00000018;
 
 // Used by data.fill to store either a known size or the name of a constant
 // that defines the size
@@ -68,8 +70,11 @@ fn main() -> anyhow::Result<()> {
     let output_file_name = &args[2];
 
     let is_fxf = output_file_name.ends_with(".fxf");
+    let is_lbr = output_file_name.ends_with(".lbr");
     if is_fxf {
         println!("Generating FXF binary");
+    } else if is_lbr {
+        println!("Generating LBR library");
     } else {
         println!("Generating raw binary");
     }
@@ -104,8 +109,10 @@ fn main() -> anyhow::Result<()> {
         .parse()?
         .assemble()?
         .batchpatch_labels()
-        .build_binary(if output_file_name.ends_with(".fxf") {
+        .build_binary(if is_fxf {
             BinaryType::Fxf
+        } else if is_lbr {
+            BinaryType::Lbr
         } else {
             BinaryType::Flat
         })

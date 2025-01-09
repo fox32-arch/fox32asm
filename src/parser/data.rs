@@ -77,7 +77,17 @@ pub fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) ->
         Rule::register => {
             let register_num = parse_register(pair);
             let offset = if let Some(offset_pair) = pointer_offset {
-                parse_immediate(offset_pair.into_inner().next().unwrap())
+                let offset_pair2 = offset_pair.clone().into_inner().next().unwrap();
+                match offset_pair2.as_rule() {
+                    /*Rule::label_name => {
+                        if let AstNode::Constant { address, .. } = parse_constant_direct(offset_pair.as_span().as_str(), ) {
+                            address
+                        } else {
+                            panic!("Trying to use a constant label as a register pointer offset, but something is wrong?");
+                        }
+                    }*/
+                    _ => parse_immediate(offset_pair2),
+                }
             } else {
                 0
             };
