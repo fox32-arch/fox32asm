@@ -117,7 +117,7 @@ impl Assembler {
                         let address_table = LABEL_ADDRESSES.lock().expect(POISONED_MUTEX_ERR);
                         let label = address_table
                             .get(&name)
-                            .expect(&format!("Label not found: {}", name));
+                            .unwrap_or_else(|| panic!("Label not found: {}", name));
                         label.0
                     }
                 };
@@ -138,7 +138,7 @@ impl Assembler {
         Ok(self)
     }
 
-    pub fn batchpatch_labels(&mut self) -> &mut Self {
+    pub fn backpatch_labels(&mut self) -> &mut Self {
         println!("Performing label backpatching...");
         let table = LABEL_TARGETS.lock().expect(POISONED_MUTEX_ERR);
         let address_table = LABEL_ADDRESSES.lock().expect(POISONED_MUTEX_ERR);

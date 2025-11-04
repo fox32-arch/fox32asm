@@ -56,7 +56,7 @@ macro_rules! create_tests {
                     .parse_includes()?
                     .parse()?
                     .assemble()?
-                    .batchpatch_labels()
+                    .backpatch_labels()
                     .build_binary(BinaryType::Fxf)?;
 
                 reset_statics! {

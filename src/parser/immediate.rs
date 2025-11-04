@@ -37,6 +37,13 @@ pub fn operand_to_immediate_value(
                 vec.push(offset);
             }
         }
+        AstNode::RegisterPointerBackpatchOffset(register, ref name) => {
+            vec.push(register);
+            if pointer_offset {
+                std::mem::drop(vec);
+                immediate::generate_backpatch(name, Size::Byte, instruction, false)?;
+            }
+        }
 
         AstNode::Immediate8(immediate) => vec.push(immediate),
         AstNode::Immediate16(immediate) => vec.extend_from_slice(&immediate.to_le_bytes()),

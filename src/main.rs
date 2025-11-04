@@ -108,7 +108,7 @@ fn main() -> anyhow::Result<()> {
         .parse_includes()?
         .parse()?
         .assemble()?
-        .batchpatch_labels()
+        .backpatch_labels()
         .build_binary(if is_fxf {
             BinaryType::Fxf
         } else if is_lbr {

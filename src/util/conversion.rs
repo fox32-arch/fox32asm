@@ -146,6 +146,7 @@ pub fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
             Register(_) => 0x00,
             RegisterPointer(_) => 0x01,
             RegisterPointerOffset{..} => 0x81,
+            RegisterPointerBackpatchOffset{..} => 0x81,
             Immediate8(_) | Immediate16(_) | Immediate32(_) | LabelOperand{..} => 0x02,
             ImmediatePointer(_) | LabelOperandPointer{..} => 0x03,
         }
@@ -162,6 +163,7 @@ pub fn condition_source_destination_to_byte(node: &AstNode) -> u8 {
             AstNode::Register(_) => 0x00,
             AstNode::RegisterPointer(_) => 0x04,
             AstNode::RegisterPointerOffset(_, _) => 0x84,
+            AstNode::RegisterPointerBackpatchOffset { .. } => 0x84,
             AstNode::Immediate8(_)
             | AstNode::Immediate16(_)
             | AstNode::Immediate32(_)

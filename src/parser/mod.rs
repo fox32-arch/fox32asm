@@ -41,6 +41,7 @@ pub enum AstNode {
     ImmediatePointer(u32),
     RegisterPointer(u8),
     RegisterPointerOffset(u8, u8),
+    RegisterPointerBackpatchOffset(u8, String),
 
     Constant {
         name: String,
