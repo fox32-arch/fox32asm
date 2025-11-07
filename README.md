@@ -4,6 +4,8 @@
 
 ## Getting Started
 
+**Quick setup**: See the [build-all repository](https://github.com/fox32-arch/build-all) to quickly get a working fox32os environment.
+
 Stable releases are available on the
 [Releases page](https://github.com/fox32-arch/fox32asm/releases).
 
