@@ -46,7 +46,7 @@ label_kind = {
     label_global
 }
 label_name = @{ label_name_chars+ }
-label_name_chars = @{ ASCII_ALPHANUMERIC | "_" }
+label_name_chars = @{ ASCII_ALPHANUMERIC | "_" | "." }
 label_external = { "extern" }
 label_global   = { "global" }
 
