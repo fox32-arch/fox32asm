@@ -59,11 +59,12 @@ operand_value_ptr = {
     operand_value
 }
 operand_value = {
-    register       |
-    immediate_bin  |
-    immediate_hex  |
-    immediate_dec  |
-    immediate_char |
+    register        |
+    immediate_bin   |
+    immediate_hex   |
+    immediate_dec   |
+    immediate_dec_s |
+    immediate_char  |
     label_name
 }
 
@@ -168,8 +169,9 @@ body_bin       = @{ (ASCII_BIN_DIGIT | "_")+ }
 immediate_hex  = ${ "0x" ~ body_hex }
 body_hex       = @{ (ASCII_HEX_DIGIT | "_")+ }
 
-immediate_dec  = ${ ASCII_DIGIT ~ body_dec }
-body_dec       = @{ (ASCII_DIGIT | "_")* }
+immediate_dec   = ${ ASCII_DIGIT ~ body_dec }
+immediate_dec_s = ${ "-" ~ ASCII_DIGIT ~ body_dec }
+body_dec        = @{ (ASCII_DIGIT | "_")* }
 
 immediate_char = ${ "'" ~ body_char ~ "'" }
 body_char      = @{ '\x00'..'\x7F' }

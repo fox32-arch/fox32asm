@@ -137,6 +137,12 @@ pub fn parse_immediate(pair: pest::iterators::Pair<Rule>) -> u32 {
                 .parse::<u32>()
                 .expect("could not parse integer as u32")
         }
+        Rule::immediate_dec_s => {
+            let dec_str = pair.as_span().as_str();
+            remove_underscores(dec_str)
+                .parse::<i32>()
+                .expect("could not parse integer as i32") as u32
+        }
         Rule::immediate_char => {
             let body_char_str = pair.into_inner().next().unwrap().as_str();
             body_char_str.chars().next().unwrap() as u8 as u32

@@ -46,6 +46,7 @@ pub fn parse_operand(mut pair: pest::iterators::Pair<Rule>, is_pointer: bool) ->
                 Rule::immediate_bin
                 | Rule::immediate_char
                 | Rule::immediate_dec
+                | Rule::immediate_dec_s
                 | Rule::immediate_hex => {
                     immediate_to_astnode(parse_immediate(operand_value_pair), size, is_pointer)
                 }

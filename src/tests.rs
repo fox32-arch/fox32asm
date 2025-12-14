@@ -81,4 +81,5 @@ create_tests! {
     hello_world => "asm-test/demos/hello_world/hello",
     multitasking => "asm-test/demos/multitasking/multitsk",
     robotfindskitten => "asm-test/demos/robotfindskitten/rfk",
+    negative_imm => "asm-test-local/negative-imm",
 }
