@@ -50,14 +50,12 @@ enum SizeOrLabelName {
     Label(String),
 }
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub const POISONED_MUTEX_ERR: &str = "failed to lock mutex; possibly poisoined";
 
 fn main() -> anyhow::Result<()> {
-    let version_string = format!(
-        "fox32asm {} ({})",
-        env!("VERGEN_BUILD_SEMVER"),
-        env!("VERGEN_GIT_SHA_SHORT")
-    );
+    let version_string = format!("fox32asm {}", VERSION);
     println!("{}", version_string);
 
     let args: Vec<String> = env::args().collect();
