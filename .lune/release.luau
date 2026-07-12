@@ -18,7 +18,7 @@ local function execute(dir: string, command: string, ...): ()
     local args = {...}
     print(`--------> {command} {table.concat(args, " ")}`)
 
-    local child = process.spawn(command, args, {
+    local child = process.exec(command, args, {
         shell = true,
         stdio = "forward",
         cwd = dir
