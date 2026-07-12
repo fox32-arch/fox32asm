@@ -326,8 +326,17 @@ pub fn parse_instruction_two(
         "sla" | "sra" | "srl" | "rol" | "ror" | "bse" | "bcl" | "bts" => {
             if let Some(value) = node_value(&rhs) {
                 rhs = AstNode::Immediate8(value as u8);
-            } else if let AstNode::LabelOperand { name, size: _, is_relative } = rhs {
-                rhs = AstNode::LabelOperand { name, size: Size::Byte, is_relative };
+            } else if let AstNode::LabelOperand {
+                name,
+                size: _,
+                is_relative,
+            } = rhs
+            {
+                rhs = AstNode::LabelOperand {
+                    name,
+                    size: Size::Byte,
+                    is_relative,
+                };
             }
         }
         _ => (),
