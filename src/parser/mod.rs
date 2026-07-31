@@ -71,6 +71,7 @@ pub enum AstNode {
         value: u8,
         size: SizeOrLabelName,
     },
+    DataMulti(Vec<AstNode>),
 
     IncludedBinary(Vec<u8>),
 
@@ -194,7 +195,14 @@ pub fn parse(source: &str) -> Result<Vec<AstNode>, Box<Error<Rule>>> {
     for pair in pairs.peek().unwrap().into_inner() {
         match pair.as_rule() {
             Rule::EOI => break,
-            _ => ast.push(build_ast_from_expression(pair)),
+            _ => {
+                let node = build_ast_from_expression(pair);
+                if let AstNode::DataMulti(nodes) = node {
+                    ast.extend(nodes);
+                } else {
+                    ast.push(node);
+                }
+            }
         }
     }
 

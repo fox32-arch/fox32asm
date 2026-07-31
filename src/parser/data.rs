@@ -123,45 +123,45 @@ pub fn parse_data(pair: pest::iterators::Pair<Rule>) -> AstNode {
     //println!("{:#?}", pair);
     *CURRENT_SIZE.lock().expect(POISONED_MUTEX_ERR) = Size::Word;
     match pair.as_rule() {
-        Rule::data_byte => match parse_operand(pair.into_inner().next().unwrap(), false) {
-            AstNode::Immediate32(half) => AstNode::DataByte(half as u8),
-            AstNode::LabelOperand {
-                name,
-                size: _,
-                is_relative,
-            } => AstNode::LabelOperand {
-                name,
-                size: Size::Byte,
-                is_relative,
-            },
-            _ => unreachable!(),
-        },
-        Rule::data_half => match parse_operand(pair.into_inner().next().unwrap(), false) {
-            AstNode::Immediate32(half) => AstNode::DataHalf(half as u16),
-            AstNode::LabelOperand {
-                name,
-                size: _,
-                is_relative,
-            } => AstNode::LabelOperand {
-                name,
-                size: Size::Half,
-                is_relative,
-            },
-            _ => unreachable!(),
-        },
-        Rule::data_word => match parse_operand(pair.into_inner().next().unwrap(), false) {
-            AstNode::Immediate32(word) => AstNode::DataWord(word),
-            AstNode::LabelOperand {
-                name,
-                size: _,
-                is_relative,
-            } => AstNode::LabelOperand {
-                name,
-                size: Size::Word,
-                is_relative,
-            },
-            _ => unreachable!(),
-        },
+        Rule::data_byte => {
+            let nodes = pair
+                .into_inner()
+                .map(|operand_pair| match parse_operand(operand_pair, false) {
+                    AstNode::Immediate32(byte) => AstNode::DataByte(byte as u8),
+                    AstNode::LabelOperand { name, size: _, is_relative } => {
+                        AstNode::LabelOperand { name, size: Size::Byte, is_relative }
+                    }
+                    _ => unreachable!(),
+                })
+                .collect();
+            AstNode::DataMulti(nodes)
+        }
+        Rule::data_half => {
+            let nodes = pair
+                .into_inner()
+                .map(|operand_pair| match parse_operand(operand_pair, false) {
+                    AstNode::Immediate32(half) => AstNode::DataHalf(half as u16),
+                    AstNode::LabelOperand { name, size: _, is_relative } => {
+                        AstNode::LabelOperand { name, size: Size::Half, is_relative }
+                    }
+                    _ => unreachable!(),
+                })
+                .collect();
+            AstNode::DataMulti(nodes)
+        }
+        Rule::data_word => {
+            let nodes = pair
+                .into_inner()
+                .map(|operand_pair| match parse_operand(operand_pair, false) {
+                    AstNode::Immediate32(word) => AstNode::DataWord(word),
+                    AstNode::LabelOperand { name, size: _, is_relative } => {
+                        AstNode::LabelOperand { name, size: Size::Word, is_relative }
+                    }
+                    _ => unreachable!(),
+                })
+                .collect();
+            AstNode::DataMulti(nodes)
+        }
         Rule::data_str => {
             let string = pair
                 .into_inner()
