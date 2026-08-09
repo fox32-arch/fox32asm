@@ -158,6 +158,7 @@ instruction_two = @{
     "cmp"  |
     "movz" |
     "mov"  |
+    "icmp" |
     "rta"  |
     "in"   |
     "out"

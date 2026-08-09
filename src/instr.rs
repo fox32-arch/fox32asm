@@ -72,6 +72,7 @@ pub enum InstructionTwo {
     Cmp,
     Mov,
     Movz,
+    Icmp,
     Rta,
     In,
     Out,
@@ -367,6 +368,7 @@ pub fn parse_instruction_two(
             "cmp" => InstructionTwo::Cmp,
             "mov" => InstructionTwo::Mov,
             "movz" => InstructionTwo::Movz,
+            "icmp" => InstructionTwo::Icmp,
             "rta" => {
                 match &mut lhs {
                     &mut AstNode::LabelOperand {

@@ -82,6 +82,7 @@ pub fn instruction_to_byte(node: &AstNode) -> u8 {
             Cmp  => 0x07,
             Mov  => 0x17,
             Movz => 0x27,
+            Icmp => 0x37,
             Rta  => 0x39,
             In   => 0x0B,
             Out  => 0x1B,
