@@ -1,4 +1,5 @@
-# fox32asm
+# fox32asm has moved to Codeberg! [https://codeberg.org/fox32-arch](https://codeberg.org/fox32-arch)
+This repository will no longer be updated.
 
 **fox32asm** is a work-in-progress assembler for **fox32**.
 
